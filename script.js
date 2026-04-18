@@ -6,6 +6,26 @@ function saveData(d) { localStorage.setItem('deposito_data', JSON.stringify(d));
 
 let tipoMov = 'entrada', filtroMov = 'todos', filtrocat = 'todas', editId = null;
 
+const subcategorias = {
+  'Sillones': ['Sillones individuales'],
+  'Mesas': ['Mesas ratonas o de centro', 'Mesa de apoyo'],
+  'Muebles Artely': ['Mesas ratonas o de centro', 'Mesa de apoyo']
+};
+
+function updateSubcats() {
+  const cat = document.getElementById('np-cat').value;
+  const subcatGroup = document.getElementById('subcat-group');
+  const subcatSelect = document.getElementById('np-subcat');
+
+  if (subcategorias[cat]) {
+    subcatSelect.innerHTML = subcategorias[cat].map(s => `<option value="${s}">${s}</option>`).join('');
+    subcatGroup.style.display = 'block';
+  } else {
+    subcatSelect.innerHTML = '';
+    subcatGroup.style.display = 'none';
+  }
+}
+
 function normalizeText(text) {
   if (!text) return '';
   const map = {
@@ -34,6 +54,8 @@ function showSection(name, el) {
     document.getElementById('np-qty').value = '0';
     document.getElementById('np-qty').disabled = false;
     document.getElementById('np-notas').value = '';
+    document.getElementById('np-cat').selectedIndex = 0;
+    updateSubcats();
     document.querySelector('#sec-nuevo-producto .btn-primary').textContent = '✓ Guardar Producto';
     document.querySelector('#sec-nuevo-producto .section-title').innerHTML = '<div class="dot"></div>Nuevo Producto';
   }
@@ -54,7 +76,12 @@ function renderStock() {
   const data = getData();
   const search = normalizeText(document.getElementById('search-stock').value || '');
   const list = document.getElementById('stock-list');
-  const icons = {'Sillones':'🛋️','Mesas':'🪵','Sillas':'🪑','Macetas':'🪴','Decoración':'🏺','Otro':'📦'};
+  const icons = {
+    'Sillones':'🛋️','Mesas':'🪵','Sillas':'🪑','Espejos':'🪞','Cuadros':'🖼️',
+    'Recibidores':'🚪','Muebles Artely':'🏢','Plantas':'🪴','Cristalería':'🍷',
+    'Flores':'💐','Navidad':'🎄','Pascua':'🐰','Macetas':'🏺','Decoración':'🏺',
+    'Otro':'📦'
+  };
 
   const cats = ['todas',...new Set(data.productos.map(p=>p.categoria))];
   document.getElementById('cat-filters').innerHTML = cats.map(c=>`
@@ -79,7 +106,7 @@ function renderStock() {
       <div class="stock-icon">${icons[p.categoria]||'📦'}</div>
       <div class="stock-info">
         <div class="stock-name">${p.nombre}</div>
-        <div class="stock-cat">${p.categoria}${p.notas?' · '+p.notas.substring(0,30):''}</div>
+        <div class="stock-cat">${p.categoria}${p.subcategoria?' ('+p.subcategoria+')':''}${p.notas?' · '+p.notas.substring(0,30):''}</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <div class="stock-qty">
@@ -143,18 +170,21 @@ function initFechas() {
 function agregarProducto() {
   const nombre = document.getElementById('np-nombre').value.trim();
   const categoria = document.getElementById('np-cat').value;
+  const subcategoriaValue = document.getElementById('np-subcat').value;
   const stock = parseInt(document.getElementById('np-qty').value) || 0;
   const notas = document.getElementById('np-notas').value.trim();
 
   if (!nombre) { showToast('El nombre es obligatorio'); return; }
 
   const data = getData();
+  const subcategoria = subcategorias[categoria] ? subcategoriaValue : null;
 
   if (editId) {
     const p = data.productos.find(prod => prod.id === editId);
     if (p) {
       p.nombre = nombre;
       p.categoria = categoria;
+      p.subcategoria = subcategoria;
       p.notas = notas;
       // No editamos stock acá
     }
@@ -162,7 +192,7 @@ function agregarProducto() {
   } else {
     const nuevo = {
       id: Date.now().toString(),
-      nombre, categoria, stock, notas, fechaCreado: new Date().toISOString()
+      nombre, categoria, subcategoria, stock, notas, fechaCreado: new Date().toISOString()
     };
     data.productos.push(nuevo);
 
@@ -201,6 +231,10 @@ function prepararEdicion(id) {
   editId = id;
   document.getElementById('np-nombre').value = p.nombre;
   document.getElementById('np-cat').value = p.categoria;
+  updateSubcats();
+  if (p.subcategoria) {
+    document.getElementById('np-subcat').value = p.subcategoria;
+  }
   document.getElementById('np-qty').value = p.stock;
   document.getElementById('np-qty').disabled = true; // No permitir editar stock desde acá para no romper historial
   document.getElementById('np-notas').value = p.notas || '';
@@ -278,6 +312,7 @@ function exportarStockActual() {
     ID: p.id,
     Producto: p.nombre,
     Categoría: p.categoria,
+    Subcategoría: p.subcategoria || '',
     Stock: p.stock,
     Notas: p.notas || ''
   }));
@@ -317,7 +352,7 @@ function exportarCompleto() {
   const data = getData();
   const wb = XLSX.utils.book_new();
 
-  const sRows = data.productos.map(p => ({ ID: p.id, Producto: p.nombre, Categoria: p.categoria, Stock: p.stock }));
+  const sRows = data.productos.map(p => ({ ID: p.id, Producto: p.nombre, Categoria: p.categoria, Subcategoria: p.subcategoria || '', Stock: p.stock }));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sRows), "Stock Actual");
 
   const mRows = data.movimientos.map(m => ({ Fecha: new Date(m.fecha).toLocaleString(), Tipo: m.tipo, Producto: m.productoNombre, Cantidad: m.cantidad, Destino: m.sucursal || '-' }));
