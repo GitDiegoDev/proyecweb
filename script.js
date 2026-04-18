@@ -18,7 +18,8 @@ function updateSubcats() {
   const subcatSelect = document.getElementById('np-subcat');
 
   if (subcategorias[cat]) {
-    subcatSelect.innerHTML = subcategorias[cat].map(s => `<option value="${s}">${s}</option>`).join('');
+    subcatSelect.innerHTML = '<option value="">(Ninguna)</option>' +
+      subcategorias[cat].map(s => `<option value="${s}">${s}</option>`).join('');
     subcatGroup.style.display = 'block';
   } else {
     subcatSelect.innerHTML = '';
@@ -177,7 +178,7 @@ function agregarProducto() {
   if (!nombre) { showToast('El nombre es obligatorio'); return; }
 
   const data = getData();
-  const subcategoria = subcategorias[categoria] ? subcategoriaValue : null;
+  const subcategoria = (subcategorias[categoria] && subcategoriaValue) ? subcategoriaValue : null;
 
   if (editId) {
     const p = data.productos.find(prod => prod.id === editId);
