@@ -4,7 +4,20 @@ function getData() {
 }
 function saveData(d) { localStorage.setItem('deposito_data', JSON.stringify(d)); }
 
-let tipoMov = 'entrada', filtroMov = 'todos', filtrocat = 'todas';
+let tipoMov = 'entrada', filtroMov = 'todos', filtrocat = 'todas', editId = null;
+
+function normalizeText(text) {
+  if (!text) return '';
+  const map = {
+    'cero': '0', 'uno': '1', 'dos': '2', 'tres': '3', 'cuatro': '4',
+    'cinco': '5', 'seis': '6', 'siete': '7', 'ocho': '8', 'nueve': '9', 'diez': '10'
+  };
+  let n = text.toLowerCase().trim();
+  for (let word in map) {
+    n = n.replace(new RegExp(`\\b${word}\\b`, 'g'), map[word]);
+  }
+  return n;
+}
 
 function showSection(name, el) {
   ['stock','movimientos','reportes','nuevo-producto'].forEach(s =>
@@ -14,6 +27,17 @@ function showSection(name, el) {
   if (el) el.classList.add('active');
   document.getElementById('fab-btn').style.display =
     (name==='nuevo-producto'||name==='reportes') ? 'none' : 'flex';
+
+  if (name !== 'nuevo-producto') {
+    editId = null;
+    document.getElementById('np-nombre').value = '';
+    document.getElementById('np-qty').value = '0';
+    document.getElementById('np-qty').disabled = false;
+    document.getElementById('np-notas').value = '';
+    document.querySelector('#sec-nuevo-producto .btn-primary').textContent = '✓ Guardar Producto';
+    document.querySelector('#sec-nuevo-producto .section-title').innerHTML = '<div class="dot"></div>Nuevo Producto';
+  }
+
   if (name==='stock') renderStock();
   if (name==='movimientos') renderMovimientos();
   if (name==='reportes') initFechas();
@@ -28,7 +52,7 @@ function showToast(msg) {
 
 function renderStock() {
   const data = getData();
-  const search = (document.getElementById('search-stock').value||'').toLowerCase();
+  const search = normalizeText(document.getElementById('search-stock').value || '');
   const list = document.getElementById('stock-list');
   const icons = {'Sillones':'🛋️','Mesas':'🪵','Sillas':'🪑','Macetas':'🪴','Decoración':'🏺','Otro':'📦'};
 
@@ -38,8 +62,12 @@ function renderStock() {
       onclick="filtrocat='${c}';renderStock()">
       ${c==='todas'?'Todas':c}</button>`).join('');
 
-  let prods = data.productos.filter(p=>
-    p.nombre.toLowerCase().includes(search)&&(filtrocat==='todas'||p.categoria===filtrocat));
+  let prods = data.productos.filter(p=> {
+    const nameNorm = normalizeText(p.nombre);
+    const notesNorm = normalizeText(p.notas || '');
+    const matchesSearch = nameNorm.includes(search) || notesNorm.includes(search);
+    return matchesSearch && (filtrocat === 'todas' || p.categoria === filtrocat);
+  });
 
   document.getElementById('stat-productos').textContent = data.productos.length;
   document.getElementById('stat-unidades').textContent = data.productos.reduce((a,p)=>a+p.stock,0);
@@ -58,6 +86,7 @@ function renderStock() {
           <div class="qty-num ${p.stock<=2?'qty-low':''}">${p.stock}</div>
           <div class="qty-label">uds</div>
         </div>
+        <button class="delete-btn" style="color:var(--blue)" onclick="prepararEdicion('${p.id}')">✏️</button>
         <button class="delete-btn" onclick="eliminarProducto('${p.id}')">🗑</button>
       </div>
     </div>`).join('');
@@ -120,29 +149,38 @@ function agregarProducto() {
   if (!nombre) { showToast('El nombre es obligatorio'); return; }
 
   const data = getData();
-  const nuevo = {
-    id: Date.now().toString(),
-    nombre, categoria, stock, notas, fechaCreado: new Date().toISOString()
-  };
-  data.productos.push(nuevo);
 
-  if (stock > 0) {
-    data.movimientos.push({
-      id: Date.now() + 1,
-      productoId: nuevo.id,
-      productoNombre: nuevo.nombre,
-      tipo: 'entrada',
-      cantidad: stock,
-      fecha: new Date().toISOString(),
-      nota: 'Carga inicial'
-    });
+  if (editId) {
+    const p = data.productos.find(prod => prod.id === editId);
+    if (p) {
+      p.nombre = nombre;
+      p.categoria = categoria;
+      p.notas = notas;
+      // No editamos stock acá
+    }
+    showToast('Producto actualizado');
+  } else {
+    const nuevo = {
+      id: Date.now().toString(),
+      nombre, categoria, stock, notas, fechaCreado: new Date().toISOString()
+    };
+    data.productos.push(nuevo);
+
+    if (stock > 0) {
+      data.movimientos.push({
+        id: Date.now() + 1,
+        productoId: nuevo.id,
+        productoNombre: nuevo.nombre,
+        tipo: 'entrada',
+        cantidad: stock,
+        fecha: new Date().toISOString(),
+        nota: 'Carga inicial'
+      });
+    }
+    showToast('Producto guardado');
   }
 
   saveData(data);
-  showToast('Producto guardado');
-  document.getElementById('np-nombre').value = '';
-  document.getElementById('np-qty').value = '0';
-  document.getElementById('np-notas').value = '';
   showSection('stock', document.querySelector('nav button:first-child'));
 }
 
@@ -153,6 +191,25 @@ function eliminarProducto(id) {
   saveData(data);
   renderStock();
   showToast('Producto eliminado');
+}
+
+function prepararEdicion(id) {
+  const data = getData();
+  const p = data.productos.find(prod => prod.id === id);
+  if (!p) return;
+
+  editId = id;
+  document.getElementById('np-nombre').value = p.nombre;
+  document.getElementById('np-cat').value = p.categoria;
+  document.getElementById('np-qty').value = p.stock;
+  document.getElementById('np-qty').disabled = true; // No permitir editar stock desde acá para no romper historial
+  document.getElementById('np-notas').value = p.notas || '';
+
+  const btn = document.querySelector('#sec-nuevo-producto .btn-primary');
+  btn.textContent = '✓ Guardar Cambios';
+  document.querySelector('#sec-nuevo-producto .section-title').innerHTML = '<div class="dot"></div>Editar Producto';
+
+  showSection('nuevo-producto');
 }
 
 function openModal() {
