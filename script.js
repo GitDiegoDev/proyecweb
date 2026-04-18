@@ -272,7 +272,7 @@ function exportarCompleto() {
 function exportarSucursales() {
   const data = getData();
   const wb = XLSX.utils.book_new();
-  const sucursales = ['Sucursal 1', 'Sucursal 2', 'Sucursal 3'];
+  const sucursales = ['Aristóbulo', 'Oberá', 'San Vicente'];
 
   sucursales.forEach(s => {
     const filtrados = data.movimientos.filter(m => m.sucursal === s);
