@@ -166,6 +166,17 @@ function initFechas() {
   const mesPasado = new Date();
   mesPasado.setMonth(mesPasado.getMonth() - 1);
   document.getElementById('rango-desde').value = mesPasado.toISOString().split('T')[0];
+
+  // Populate report category filter
+  const data = getData();
+  const cats = [...new Set(data.productos.map(p => p.categoria))].sort();
+  const select = document.getElementById('reporte-stock-cat');
+  const currentVal = select.value;
+  select.innerHTML = '<option value="Todas">Todas las categorías</option>' +
+    cats.map(c => `<option value="${c}">${c}</option>`).join('');
+  if ([...select.options].some(o => o.value === currentVal)) {
+    select.value = currentVal;
+  }
 }
 
 function agregarProducto() {
@@ -309,7 +320,17 @@ function confirmarMovimiento() {
 // EXPORTACION
 function exportarStockActual() {
   const data = getData();
-  const rows = data.productos.map(p => ({
+  const cat = document.getElementById('reporte-stock-cat').value;
+
+  let filteredProds = data.productos;
+  let filename = "Stock_Actual.xlsx";
+
+  if (cat !== 'Todas') {
+    filteredProds = data.productos.filter(p => p.categoria === cat);
+    filename = `Stock_${cat}.xlsx`;
+  }
+
+  const rows = filteredProds.map(p => ({
     ID: p.id,
     Producto: p.nombre,
     Categoría: p.categoria,
@@ -320,7 +341,7 @@ function exportarStockActual() {
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Stock");
-  XLSX.writeFile(wb, "Stock_Actual.xlsx");
+  XLSX.writeFile(wb, filename);
 }
 
 function exportarMovimientos() {
