@@ -16,12 +16,6 @@ const ICONS = {
   'Otro':'📦'
 };
 
-const SUBCATEGORIAS = {
-  'Sillones': ['Sillones individuales'],
-  'Mesas': ['Mesas ratonas o de centro', 'Mesa de apoyo'],
-  'Muebles Artely': ['Mesas ratonas o de centro', 'Mesa de apoyo']
-};
-
 // ==========================================
 // CAPA DE DATOS (Data Layer)
 // ==========================================
@@ -133,6 +127,10 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 }
 
+function toggleExpand(el) {
+  el.classList.toggle('expanded');
+}
+
 // Debounce para búsqueda
 let searchTimeout;
 function debouncedSearch() {
@@ -212,7 +210,6 @@ function resetForm() {
   document.getElementById('np-qty').disabled = false;
   document.getElementById('np-notas').value = '';
   document.getElementById('np-cat').selectedIndex = 0;
-  updateSubcats();
   document.querySelector('#sec-nuevo-producto .btn-primary').textContent = '✓ Guardar Producto';
   document.querySelector('#sec-nuevo-producto .section-title').innerHTML = '<div class="dot"></div>Nuevo Producto';
 }
@@ -275,16 +272,41 @@ function renderStock() {
   const end = start + CONFIG.ITEMS_PER_PAGE;
   const visible = prods.slice(start, end);
 
-  list.innerHTML = visible.map((p, i) => {
-    const status = getStockStatus(p.stock);
-    return `
-    <div class="stock-item" style="animation-delay: ${i*0.03}s">
+  if (filtrocat === 'todas' && !search) {
+    // Agrupar por categoría
+    const grouped = {};
+    visible.forEach(p => {
+      if (!grouped[p.categoria]) grouped[p.categoria] = [];
+      grouped[p.categoria].push(p);
+    });
+
+    list.innerHTML = Object.keys(grouped).map(cat => `
+      <div class="cat-group-title">${ICONS[cat] || ''} ${cat}</div>
+      ${grouped[cat].map((p, i) => renderStockItem(p, i)).join('')}
+    `).join('');
+  } else {
+    list.innerHTML = visible.map((p, i) => renderStockItem(p, i)).join('');
+  }
+
+  // Indicador de más páginas
+  if (prods.length > end) {
+    list.innerHTML += `<div style="text-align:center;padding:20px;">
+      <button class="btn btn-ghost btn-sm" onclick="currentPage++;renderStock()">Ver más (${prods.length - end} restantes)</button>
+    </div>`;
+  }
+}
+
+function renderStockItem(p, i) {
+  const status = getStockStatus(p.stock);
+  return `
+    <div class="stock-item" style="animation-delay: ${i*0.03}s" onclick="toggleExpand(this)">
       <div class="stock-icon">${ICONS[p.categoria] || '📦'}</div>
       <div class="stock-info">
-        <div class="stock-name" title="${p.nombre}">${p.nombre}</div>
-        <div class="stock-cat">${p.categoria}${p.subcategoria ? ' ('+p.subcategoria+')' : ''}${p.notas ? ' · ' + p.notas.substring(0,30) : ''}</div>
+        <div class="stock-name">${p.nombre}</div>
+        <div class="stock-cat">${p.categoria}</div>
+        <div class="stock-notes">${p.notas || ''}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px" onclick="event.stopPropagation()">
         <div class="stock-qty" title="${status.label}">
           <div class="qty-num ${status.class}">${p.stock}</div>
           <div class="qty-label">uds</div>
@@ -293,14 +315,6 @@ function renderStock() {
         <button class="delete-btn" onclick="eliminarProducto('${p.id}')" title="Eliminar">🗑</button>
       </div>
     </div>`;
-  }).join('');
-
-  // Indicador de más páginas
-  if (prods.length > end) {
-    list.innerHTML += `<div style="text-align:center;padding:20px;">
-      <button class="btn btn-ghost btn-sm" onclick="currentPage++;renderStock()">Ver más (${prods.length - end} restantes)</button>
-    </div>`;
-  }
 }
 
 // ==========================================
@@ -361,21 +375,6 @@ function filterMov(f, el) {
 // ==========================================
 // FORMULARIOS
 // ==========================================
-function updateSubcats() {
-  const cat = document.getElementById('np-cat').value;
-  const subcatGroup = document.getElementById('subcat-group');
-  const subcatSelect = document.getElementById('np-subcat');
-
-  if (SUBCATEGORIAS[cat]) {
-    subcatSelect.innerHTML = '<option value="">(Ninguna)</option>' +
-      SUBCATEGORIAS[cat].map(s => `<option value="${s}">${s}</option>`).join('');
-    subcatGroup.style.display = 'block';
-  } else {
-    subcatSelect.innerHTML = '';
-    subcatGroup.style.display = 'none';
-  }
-}
-
 function initFechas() {
   const hoy = new Date().toISOString().split('T')[0];
   document.getElementById('rango-hasta').value = hoy;
@@ -400,7 +399,6 @@ function initFechas() {
 function agregarProducto() {
   const nombre = sanitizeInput(document.getElementById('np-nombre').value);
   const categoria = document.getElementById('np-cat').value;
-  const subcategoriaValue = document.getElementById('np-subcat').value;
   const stock = parseInt(document.getElementById('np-qty').value) || 0;
   const notas = sanitizeInput(document.getElementById('np-notas').value);
 
@@ -408,7 +406,6 @@ function agregarProducto() {
   if (error) { showToast(error, 'error'); return; }
 
   const data = DataLayer.get();
-  const subcategoria = SUBCATEGORIAS[categoria] ? subcategoriaValue : null;
 
   if (editId) {
     const p = data.productos.find(prod => prod.id === editId);
@@ -416,7 +413,6 @@ function agregarProducto() {
       const oldName = p.nombre;
       p.nombre = nombre;
       p.categoria = categoria;
-      p.subcategoria = subcategoria;
       p.notas = notas;
       logAudit('edit_producto', { id: editId, oldName, newName: nombre });
     }
@@ -429,7 +425,7 @@ function agregarProducto() {
 
     const nuevo = {
       id: generateId(),
-      nombre, categoria, subcategoria, stock, notas,
+      nombre, categoria, stock, notas,
       fechaCreado: new Date().toISOString()
     };
     data.productos.push(nuevo);
@@ -475,10 +471,6 @@ function prepararEdicion(id) {
   editId = id;
   document.getElementById('np-nombre').value = p.nombre;
   document.getElementById('np-cat').value = p.categoria;
-  updateSubcats();
-  if (p.subcategoria) {
-    document.getElementById('np-subcat').value = p.subcategoria;
-  }
   document.getElementById('np-qty').value = p.stock;
   document.getElementById('np-qty').disabled = true;
   document.getElementById('np-notas').value = p.notas || '';
@@ -594,7 +586,6 @@ function exportarStockActual() {
     ID: p.id,
     Producto: p.nombre,
     Categoría: p.categoria,
-    Subcategoría: p.subcategoria || '',
     Stock: p.stock,
     Estado: getStockStatus(p.stock).label,
     Notas: p.notas || '',
@@ -646,7 +637,7 @@ function exportarCompleto() {
 
   const sRows = data.productos.map(p => ({
     ID: p.id, Producto: p.nombre, Categoria: p.categoria,
-    Subcategoria: p.subcategoria || '', Stock: p.stock, Estado: getStockStatus(p.stock).label
+    Stock: p.stock, Estado: getStockStatus(p.stock).label
   }));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sRows), "Stock Actual");
 
