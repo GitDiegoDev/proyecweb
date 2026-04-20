@@ -6,14 +6,15 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Depósito Stock</title>
+<meta name="theme-color" content="#0f0e0c">
+<title>Depósito Stock Pro</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header>
-  <h1>📦 Depósito</h1>
+  <h1>📦 Depósito <span style="font-size:14px;opacity:0.6">Pro</span></h1>
   <p id="fecha-header"></p>
 </header>
 
@@ -35,10 +36,18 @@
       <div class="stat-num" id="stat-unidades">0</div>
       <div class="stat-label">Unidades</div>
     </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-critico">0</div>
+      <div class="stat-label" style="color:var(--red)">Crítico</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="stat-bajo">0</div>
+      <div class="stat-label" style="color:#f59e0b">Bajo</div>
+    </div>
   </div>
   <div class="search-box">
     <span class="search-icon">🔍</span>
-    <input type="text" placeholder="Buscar producto..." id="search-stock" oninput="renderStock()">
+    <input type="text" placeholder="Buscar producto..." id="search-stock" oninput="debouncedSearch()">
   </div>
   <div class="filter-row" id="cat-filters"></div>
   <div class="card"><div id="stock-list"></div></div>
@@ -121,6 +130,18 @@
     </div>
     <button class="btn btn-excel btn-sm" onclick="exportarSucursales()">⬇ Descargar Por Sucursal.xlsx</button>
   </div>
+
+  <div class="reporte-card" style="border-color: var(--accent);">
+    <div class="reporte-header">
+      <div class="reporte-icon">💾</div>
+      <div class="reporte-info">
+        <h3>Respaldo de Datos</h3>
+        <p>Exportá todos los datos para respaldo o transferencia entre dispositivos</p>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="exportarBackup()">💾 Crear Respaldo</button>
+    <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="importarBackup()">📤 Restaurar Respaldo</button>
+  </div>
 </main>
 
 <!-- NUEVO PRODUCTO -->
@@ -129,7 +150,7 @@
   <div class="card">
     <div class="form-group">
       <label>Nombre del producto *</label>
-      <input type="text" id="np-nombre" placeholder="Ej: Sillón 3 cuerpos gris">
+      <input type="text" id="np-nombre" placeholder="Ej: Sillón 3 cuerpos gris" maxlength="100">
     </div>
     <div class="form-group">
       <label>Categoría</label>
@@ -157,18 +178,18 @@
     </div>
     <div class="form-group">
       <label>Stock inicial</label>
-      <input type="number" id="np-qty" placeholder="0" min="0" value="0">
+      <input type="number" id="np-qty" placeholder="0" min="0" max="99999" value="0">
     </div>
     <div class="form-group">
       <label>Notas (opcional)</label>
-      <textarea id="np-notas" placeholder="Color, tamaño, código interno..."></textarea>
+      <textarea id="np-notas" placeholder="Color, tamaño, código interno..." maxlength="500"></textarea>
     </div>
     <button class="btn btn-primary" onclick="agregarProducto()">✓ Guardar Producto</button>
   </div>
 </main>
 
 <!-- MODAL MOVIMIENTO -->
-<div class="modal-overlay" id="modal-mov">
+<div class="modal-overlay" id="modal-mov" onclick="if(event.target===this) closeModal()">
   <div class="modal">
     <div class="modal-title">
       Registrar Movimiento
@@ -184,7 +205,7 @@
     </div>
     <div class="form-group">
       <label>Cantidad *</label>
-      <input type="number" id="mov-qty" placeholder="1" min="1" value="1">
+      <input type="number" id="mov-qty" placeholder="1" min="1" max="99999" value="1">
     </div>
     <div class="form-group" id="grupo-sucursal" style="display:none">
       <label>Sucursal destino</label>
@@ -196,7 +217,7 @@
     </div>
     <div class="form-group">
       <label>Nota (opcional)</label>
-      <input type="text" id="mov-nota" placeholder="Descripción del movimiento">
+      <input type="text" id="mov-nota" placeholder="Descripción del movimiento" maxlength="200">
     </div>
     <button class="btn btn-entrada" id="btn-confirmar-mov" onclick="confirmarMovimiento()">✓ Confirmar Entrada</button>
   </div>
