@@ -13,7 +13,7 @@ const ICONS = {
   'Sillones':'🛋️','Mesas':'🪵','Sillas':'🪑','Espejos':'🪞','Cuadros':'🖼️',
   'Recibidores':'🚪','Muebles Artely':'🏢','Plantas':'🪴','Cristalería':'🍷',
   'Flores':'💐','Navidad':'🎄','Pascua':'🐰','Macetas':'🏺','Decoración':'🏺',
-  'Otro':'📦'
+  'Individuales':'🍽️','Mesas Ratonas':'🛋️','Otro':'📦'
 };
 
 // ==========================================
