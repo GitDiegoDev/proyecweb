@@ -496,8 +496,20 @@ function openModal() {
   ).join('');
 
   select.innerHTML = opciones;
+  updateMovDesc();
   document.getElementById('modal-mov').classList.add('open');
   document.body.style.overflow = 'hidden';
+}
+
+function updateMovDesc() {
+  const prodId = document.getElementById('mov-producto').value;
+  const prod = DataLayer.getProductById(prodId);
+  const descEl = document.getElementById('mov-desc');
+  if (prod) {
+    descEl.textContent = prod.notas || 'Sin descripción';
+  } else {
+    descEl.textContent = '';
+  }
 }
 
 function closeModal() {
@@ -583,13 +595,8 @@ function exportarStockActual() {
   }
 
   const rows = filteredProds.map(p => ({
-    ID: p.id,
     Producto: p.nombre,
-    Categoría: p.categoria,
-    Stock: p.stock,
-    Estado: getStockStatus(p.stock).label,
-    Notas: p.notas || '',
-    'Fecha Creación': formatDate(p.fechaCreado)
+    Cantidad: p.stock
   }));
 
   const ws = XLSX.utils.json_to_sheet(rows);
@@ -636,8 +643,7 @@ function exportarCompleto() {
   const wb = XLSX.utils.book_new();
 
   const sRows = data.productos.map(p => ({
-    ID: p.id, Producto: p.nombre, Categoria: p.categoria,
-    Stock: p.stock, Estado: getStockStatus(p.stock).label
+    Producto: p.nombre, Cantidad: p.stock
   }));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sRows), "Stock Actual");
 
