@@ -143,9 +143,24 @@ input:disabled { opacity: 0.6; cursor: not-allowed; }
   border: 2px solid var(--border); transition: transform 0.2s;
 }
 .stock-item:hover .stock-icon { transform: scale(1.1) rotate(-5deg); }
+
+.cat-group-title {
+  font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700;
+  color: var(--accent); background: rgba(232,197,71,0.05);
+  padding: 8px 12px; border-radius: 6px; margin: 16px 0 8px;
+  text-transform: uppercase; letter-spacing: 1px;
+  border-left: 3px solid var(--accent);
+}
+
 .stock-info { flex: 1; min-width: 0; }
-.stock-name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stock-name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: all 0.3s; }
 .stock-cat { font-size: 11px; font-family: 'Space Mono', monospace; color: var(--muted); margin-top: 4px; }
+.stock-notes { font-size: 12px; color: var(--muted); margin-top: 8px; display: none; line-height: 1.4; }
+
+.stock-item.expanded { align-items: flex-start; }
+.stock-item.expanded .stock-name { white-space: normal; }
+.stock-item.expanded .stock-notes { display: block; }
+
 .stock-qty { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; }
 .qty-num { font-size: 26px; font-weight: 800; font-family: 'Space Mono', monospace; line-height: 1; transition: color 0.3s; }
 .qty-label { font-size: 10px; color: var(--muted); font-family: 'Space Mono', monospace; text-transform: uppercase; }
