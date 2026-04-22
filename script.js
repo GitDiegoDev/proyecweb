@@ -89,7 +89,7 @@ function sanitizeInput(str) {
 function normalizeText(text) {
   if (!text) return '';
   const map = {
-    'cero': '0', 'uno': '1', 'dos': '2', 'tres': '3', 'cuatro': '4',
+    'cero': '0', 'un': '1', 'uno': '1', 'dos': '2', 'tres': '3', 'cuatro': '4',
     'cinco': '5', 'seis': '6', 'siete': '7', 'ocho': '8', 'nueve': '9', 'diez': '10'
   };
   let n = text.toLowerCase().trim();
@@ -129,6 +129,12 @@ function generateId() {
 
 function toggleExpand(el) {
   el.classList.toggle('expanded');
+}
+
+function getCuerpos(p) {
+  const text = normalizeText((p.nombre || '') + ' ' + (p.notas || ''));
+  const match = text.match(/(\d+)\s*cuerpos?/);
+  return match ? parseInt(match[1]) : 0;
 }
 
 // Debounce para búsqueda
@@ -586,18 +592,53 @@ function exportarStockActual() {
   const data = DataLayer.get();
   const cat = document.getElementById('reporte-stock-cat').value;
 
-  let filteredProds = data.productos;
+  let filteredProds = [...data.productos];
   let filename = "Stock_Actual.xlsx";
 
   if (cat !== 'Todas') {
-    filteredProds = data.productos.filter(p => p.categoria === cat);
+    filteredProds = filteredProds.filter(p => p.categoria === cat);
     filename = `Stock_${cat}.xlsx`;
   }
 
+  // Ordenar: Categoría -> Cuerpos (para Sillones) -> Nombre
+  filteredProds.sort((a, b) => {
+    if (a.categoria !== b.categoria) {
+      return a.categoria.localeCompare(b.categoria);
+    }
+    if (a.categoria === 'Sillones') {
+      const ca = getCuerpos(a);
+      const cb = getCuerpos(b);
+      if (ca !== cb) return ca - cb;
+    }
+    return a.nombre.localeCompare(b.nombre);
+  });
+
   const rows = filteredProds.map(p => ({
     Producto: p.nombre,
-    Cantidad: p.stock
+    Notas: p.notas || ''
   }));
+
+  // Totales por cuerpos para Sillones
+  if (cat === 'Todas' || cat === 'Sillones') {
+    const sillones = filteredProds.filter(p => p.categoria === 'Sillones');
+    const totales = {};
+    sillones.forEach(p => {
+      const c = getCuerpos(p);
+      if (c > 0) {
+        totales[c] = (totales[c] || 0) + p.stock;
+      }
+    });
+
+    const totalRows = Object.keys(totales).sort((a, b) => a - b).map(c => ({
+      Producto: `TOTAL SILLONES ${c} CUERPOS`,
+      Notas: `${totales[c]} unidades`
+    }));
+
+    if (totalRows.length > 0) {
+      rows.push({ Producto: '', Notas: '' }); // Espacio
+      rows.push(...totalRows);
+    }
+  }
 
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
@@ -642,9 +683,44 @@ function exportarCompleto() {
   const data = DataLayer.get();
   const wb = XLSX.utils.book_new();
 
-  const sRows = data.productos.map(p => ({
-    Producto: p.nombre, Cantidad: p.stock
+  const sortedProds = [...data.productos];
+  sortedProds.sort((a, b) => {
+    if (a.categoria !== b.categoria) {
+      return a.categoria.localeCompare(b.categoria);
+    }
+    if (a.categoria === 'Sillones') {
+      const ca = getCuerpos(a);
+      const cb = getCuerpos(b);
+      if (ca !== cb) return ca - cb;
+    }
+    return a.nombre.localeCompare(b.nombre);
+  });
+
+  const sRows = sortedProds.map(p => ({
+    Producto: p.nombre,
+    Notas: p.notas || ''
   }));
+
+  // Totales por cuerpos para Sillones en reporte completo
+  const sillones = sortedProds.filter(p => p.categoria === 'Sillones');
+  const totales = {};
+  sillones.forEach(p => {
+    const c = getCuerpos(p);
+    if (c > 0) {
+      totales[c] = (totales[c] || 0) + p.stock;
+    }
+  });
+
+  const totalRows = Object.keys(totales).sort((a, b) => a - b).map(c => ({
+    Producto: `TOTAL SILLONES ${c} CUERPOS`,
+    Notas: `${totales[c]} unidades`
+  }));
+
+  if (totalRows.length > 0) {
+    sRows.push({ Producto: '', Notas: '' }); // Espacio
+    sRows.push(...totalRows);
+  }
+
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sRows), "Stock Actual");
 
   const mRows = data.movimientos.map(m => ({
