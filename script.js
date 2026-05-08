@@ -97,7 +97,7 @@ function normalizeText(text) {
   for (let word in map) {
     n = n.replace(new RegExp(`\\b${word}\\b`, 'g'), map[word]);
   }
-  return n.replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ');
+  return n.replace(/[^a-z0-9\s/]/g, '').replace(/\s+/g, ' ');
 }
 
 function validateProducto(nombre, stock) {
@@ -211,6 +211,7 @@ function showSection(name, el) {
 
 function resetForm() {
   editId = null;
+  document.getElementById('np-codigo').value = '';
   document.getElementById('np-nombre').value = '';
   document.getElementById('np-qty').value = '0';
   document.getElementById('np-qty').disabled = false;
@@ -258,11 +259,21 @@ function renderStock() {
 
   // Filtrar productos
   let prods = data.productos.filter(p => {
+    const codeNorm = normalizeText(p.codigo || '');
     const nameNorm = normalizeText(p.nombre);
     const notesNorm = normalizeText(p.notas || '');
-    return (nameNorm.includes(search) || notesNorm.includes(search)) &&
+    return (codeNorm.includes(search) || nameNorm.includes(search) || notesNorm.includes(search)) &&
            (filtrocat === 'todas' || p.categoria === filtrocat);
   });
+
+  // Mostrar info de búsqueda
+  const searchInfo = document.getElementById('search-info');
+  if (search || filtrocat !== 'todas') {
+    searchInfo.style.display = 'block';
+    searchInfo.innerHTML = `Encontrados: <span>${prods.length}</span> productos`;
+  } else {
+    searchInfo.style.display = 'none';
+  }
 
   if (!prods.length) {
     list.innerHTML = `<div class="empty">
@@ -308,6 +319,7 @@ function renderStockItem(p, i) {
     <div class="stock-item" style="animation-delay: ${i*0.03}s" onclick="toggleExpand(this)">
       <div class="stock-icon">${ICONS[p.categoria] || '📦'}</div>
       <div class="stock-info">
+        ${p.codigo ? `<div class="stock-code">${p.codigo}</div>` : ''}
         <div class="stock-name">${p.nombre}</div>
         <div class="stock-cat">${p.categoria}</div>
         <div class="stock-notes">${p.notas || ''}</div>
@@ -403,6 +415,7 @@ function initFechas() {
 // CRUD PRODUCTOS
 // ==========================================
 function agregarProducto() {
+  const codigo = sanitizeInput(document.getElementById('np-codigo').value);
   const nombre = sanitizeInput(document.getElementById('np-nombre').value);
   const categoria = document.getElementById('np-cat').value;
   const stock = parseInt(document.getElementById('np-qty').value) || 0;
@@ -417,6 +430,7 @@ function agregarProducto() {
     const p = data.productos.find(prod => prod.id === editId);
     if (p) {
       const oldName = p.nombre;
+      p.codigo = codigo;
       p.nombre = nombre;
       p.categoria = categoria;
       p.notas = notas;
@@ -431,7 +445,7 @@ function agregarProducto() {
 
     const nuevo = {
       id: generateId(),
-      nombre, categoria, stock, notas,
+      codigo, nombre, categoria, stock, notas,
       fechaCreado: new Date().toISOString()
     };
     data.productos.push(nuevo);
@@ -475,6 +489,7 @@ function prepararEdicion(id) {
   if (!p) return;
 
   editId = id;
+  document.getElementById('np-codigo').value = p.codigo || '';
   document.getElementById('np-nombre').value = p.nombre;
   document.getElementById('np-cat').value = p.categoria;
   document.getElementById('np-qty').value = p.stock;
@@ -614,6 +629,7 @@ function exportarStockActual() {
   });
 
   const rows = filteredProds.map(p => ({
+    Código: p.codigo || '',
     Producto: p.nombre,
     Notas: p.notas || ''
   }));
@@ -697,6 +713,7 @@ function exportarCompleto() {
   });
 
   const sRows = sortedProds.map(p => ({
+    Código: p.codigo || '',
     Producto: p.nombre,
     Notas: p.notas || ''
   }));
