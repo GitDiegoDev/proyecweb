@@ -631,6 +631,7 @@ function exportarStockActual() {
   const rows = filteredProds.map(p => ({
     Código: p.codigo || '',
     Producto: p.nombre,
+    Cantidad: p.stock === 1 ? `${p.stock} unidad` : `${p.stock} unidades`,
     Notas: p.notas || ''
   }));
 
@@ -647,11 +648,12 @@ function exportarStockActual() {
 
     const totalRows = Object.keys(totales).sort((a, b) => a - b).map(c => ({
       Producto: `TOTAL SILLONES ${c} CUERPOS`,
-      Notas: `${totales[c]} unidades`
+      Cantidad: totales[c] === 1 ? `${totales[c]} unidad` : `${totales[c]} unidades`,
+      Notas: ''
     }));
 
     if (totalRows.length > 0) {
-      rows.push({ Producto: '', Notas: '' }); // Espacio
+      rows.push({ Código: '', Producto: '', Cantidad: '', Notas: '' }); // Espacio
       rows.push(...totalRows);
     }
   }
@@ -715,6 +717,7 @@ function exportarCompleto() {
   const sRows = sortedProds.map(p => ({
     Código: p.codigo || '',
     Producto: p.nombre,
+    Cantidad: p.stock === 1 ? `${p.stock} unidad` : `${p.stock} unidades`,
     Notas: p.notas || ''
   }));
 
@@ -730,11 +733,12 @@ function exportarCompleto() {
 
   const totalRows = Object.keys(totales).sort((a, b) => a - b).map(c => ({
     Producto: `TOTAL SILLONES ${c} CUERPOS`,
-    Notas: `${totales[c]} unidades`
+    Cantidad: totales[c] === 1 ? `${totales[c]} unidad` : `${totales[c]} unidades`,
+    Notas: ''
   }));
 
   if (totalRows.length > 0) {
-    sRows.push({ Producto: '', Notas: '' }); // Espacio
+    sRows.push({ Código: '', Producto: '', Cantidad: '', Notas: '' }); // Espacio
     sRows.push(...totalRows);
   }
 
