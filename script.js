@@ -607,7 +607,7 @@ function exportarStockActual() {
   const data = DataLayer.get();
   const cat = document.getElementById('reporte-stock-cat').value;
 
-  let filteredProds = [...data.productos];
+  let filteredProds = data.productos.filter(p => p.stock > 0);
   let filename = "Stock_Actual.xlsx";
 
   if (cat !== 'Todas') {
@@ -701,7 +701,7 @@ function exportarCompleto() {
   const data = DataLayer.get();
   const wb = XLSX.utils.book_new();
 
-  const sortedProds = [...data.productos];
+  const sortedProds = data.productos.filter(p => p.stock > 0);
   sortedProds.sort((a, b) => {
     if (a.categoria !== b.categoria) {
       return a.categoria.localeCompare(b.categoria);
