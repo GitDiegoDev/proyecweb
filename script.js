@@ -397,22 +397,28 @@ document.addEventListener('DOMContentLoaded', () => {
       const lastDateStart = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate());
       const diffTime = todayStart.getTime() - lastDateStart.getTime();
       const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
+      const diffHours = Math.max(0, Math.floor((now.getTime() - latest.timestamp) / (1000 * 3600)));
 
-      counterNumber.textContent = diffDays;
-      counterLabel.textContent = diffDays === 1 ? 'día desde tu última evacuación' : 'días desde tu última evacuación';
+      if (diffHours < 24) {
+        counterNumber.textContent = `${diffHours} hrs`;
+        counterLabel.textContent = 'desde tu último registro';
+      } else {
+        counterNumber.textContent = `${diffDays} ${diffDays === 1 ? 'día' : 'días'}`;
+        counterLabel.textContent = 'desde tu último registro';
+      }
 
       // Formato fecha amigable
       const options = { weekday: 'short', day: 'numeric', month: 'short' };
       statusLastDate.textContent = `Último: ${lastDate.toLocaleDateString('es-ES', options)} (${latest.time})`;
 
       if (diffDays <= 1) {
-        statusBadge.textContent = 'Ritmo Regular';
+        statusBadge.textContent = 'Normal';
         statusBadge.className = 'status-badge';
       } else if (diffDays <= 3) {
-        statusBadge.textContent = 'Ritmo Moderado';
+        statusBadge.textContent = 'Regular';
         statusBadge.className = 'status-badge warning';
       } else {
-        statusBadge.textContent = 'Sin evacuación reciente';
+        statusBadge.textContent = 'Sin registro reciente';
         statusBadge.className = 'status-badge warning';
       }
     },
@@ -716,6 +722,19 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
   };
+
+  // Registrador de Service Worker (PWA)
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then((reg) => {
+          console.log('Service Worker registrado con éxito:', reg.scope);
+        })
+        .catch((err) => {
+          console.error('Error al registrar Service Worker:', err);
+        });
+    });
+  }
 
   // Inicializar la App
   UIController.init();
