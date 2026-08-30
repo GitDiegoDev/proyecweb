@@ -12,8 +12,86 @@ function toLocalDateStr(d) {
 
 document.addEventListener('DOMContentLoaded', () => {
   // ==========================================================================
-  // 1. MÓDULO DE ALMACENAMIENTO (StorageModule)
+  // 1. MÓDULOS DE ALMACENAMIENTO (StorageModule & WaterStorageModule)
   // ==========================================================================
+  const WaterStorageModule = {
+    STORAGE_KEY: 'miritmo_agua',
+    DAILY_GOAL: 2000, // Meta recomendada de 2000 ml (8 vasos de 250ml)
+
+    getAll() {
+      try {
+        const data = localStorage.getItem(this.STORAGE_KEY);
+        return data ? JSON.parse(data) : {};
+      } catch (e) {
+        console.error('Error al leer de localStorage (Agua)', e);
+        return {};
+      }
+    },
+
+    saveAll(data) {
+      try {
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+        return true;
+      } catch (e) {
+        console.error('Error al guardar en localStorage (Agua)', e);
+        return false;
+      }
+    },
+
+    getAmountByDate(dateStr) {
+      const data = this.getAll();
+      return data[dateStr]?.amount || 0;
+    },
+
+    setAmountByDate(dateStr, amount) {
+      const data = this.getAll();
+      const currentAmount = Math.max(0, amount);
+      if (!data[dateStr]) {
+        data[dateStr] = {};
+      }
+      data[dateStr].amount = currentAmount;
+
+      // Preservar slots si existen o crear nuevos
+      if (!data[dateStr].slots) {
+        data[dateStr].slots = {};
+      }
+      this.saveAll(data);
+      return currentAmount;
+    },
+
+    addWater(dateStr, ml) {
+      const current = this.getAmountByDate(dateStr);
+      return this.setAmountByDate(dateStr, current + ml);
+    },
+
+    removeWater(dateStr, ml) {
+      const current = this.getAmountByDate(dateStr);
+      return this.setAmountByDate(dateStr, Math.max(0, current - ml));
+    },
+
+    getSlotsByDate(dateStr) {
+      const data = this.getAll();
+      return data[dateStr]?.slots || {};
+    },
+
+    toggleSlot(dateStr, slotId) {
+      const data = this.getAll();
+      if (!data[dateStr]) data[dateStr] = { amount: 0, slots: {} };
+      if (!data[dateStr].slots) data[dateStr].slots = {};
+
+      const currentSlotState = !!data[dateStr].slots[slotId];
+      data[dateStr].slots[slotId] = !currentSlotState;
+
+      // Si se marca el slot como completado, agregar 250ml si la cantidad actual es baja
+      if (!currentSlotState) {
+        data[dateStr].amount = (data[dateStr].amount || 0) + 250;
+      }
+
+      this.saveAll(data);
+      return data[dateStr];
+    }
+  };
+
   const StorageModule = {
     STORAGE_KEY: 'miritmo_evacuaciones',
 
@@ -163,16 +241,109 @@ document.addEventListener('DOMContentLoaded', () => {
     currentCalendarYear: new Date().getFullYear(),
     selectedCalendarDateStr: null,
 
+    // Variables de estado del calendario de agua
+    waterCalendarMonth: new Date().getMonth(),
+    waterCalendarYear: new Date().getFullYear(),
+    selectedWaterCalendarDateStr: null,
+
     init() {
       this.updateGreeting();
       this.setupNavigation();
       this.setupModalEvents();
       this.setupFormChips();
       this.setupCalendarEvents();
+      this.setupWaterEvents();
       this.setupBackupEvents();
       this.setupReminderEvents();
       this.checkDailyReminder();
       this.renderAll();
+    },
+
+    setupWaterEvents() {
+      const todayStr = toLocalDateStr(new Date());
+
+      // Botón +1 Vaso (250 ml)
+      document.getElementById('btn-add-glass')?.addEventListener('click', () => {
+        WaterStorageModule.addWater(todayStr, 250);
+        this.renderWaterModule();
+        this.showToast('+1 Vaso de agua agregado (250 ml)', true);
+      });
+
+      // Botón +1 Botella (500 ml)
+      document.getElementById('btn-add-bottle')?.addEventListener('click', () => {
+        WaterStorageModule.addWater(todayStr, 500);
+        this.renderWaterModule();
+        this.showToast('+1 Botella de agua agregada (500 ml)', true);
+      });
+
+      // Botón -1 Vaso (-250 ml)
+      document.getElementById('btn-remove-glass')?.addEventListener('click', () => {
+        WaterStorageModule.removeWater(todayStr, 250);
+        this.renderWaterModule();
+      });
+
+      // Navegación Calendario de Agua
+      document.getElementById('water-cal-prev-month')?.addEventListener('click', () => {
+        this.waterCalendarMonth--;
+        if (this.waterCalendarMonth < 0) {
+          this.waterCalendarMonth = 11;
+          this.waterCalendarYear--;
+        }
+        this.renderWaterCalendar();
+      });
+
+      document.getElementById('water-cal-next-month')?.addEventListener('click', () => {
+        this.waterCalendarMonth++;
+        if (this.waterCalendarMonth > 11) {
+          this.waterCalendarMonth = 0;
+          this.waterCalendarYear++;
+        }
+        this.renderWaterCalendar();
+      });
+
+      // Acciones de detalle de día en calendario de agua
+      document.getElementById('btn-water-day-add')?.addEventListener('click', () => {
+        if (this.selectedWaterCalendarDateStr) {
+          WaterStorageModule.addWater(this.selectedWaterCalendarDateStr, 250);
+          this.renderWaterModule();
+        }
+      });
+
+      document.getElementById('btn-water-day-reset')?.addEventListener('click', () => {
+        if (this.selectedWaterCalendarDateStr) {
+          WaterStorageModule.setAmountByDate(this.selectedWaterCalendarDateStr, 0);
+          this.renderWaterModule();
+        }
+      });
+
+      // Toggle Recordatorio de Agua
+      const waterToggle = document.getElementById('toggle-water-reminder');
+      if (waterToggle) {
+        const savedState = localStorage.getItem('miritmo_water_reminder_enabled') === 'true';
+        waterToggle.checked = savedState;
+
+        waterToggle.addEventListener('change', async () => {
+          if (waterToggle.checked) {
+            if ('Notification' in window) {
+              const permission = await Notification.requestPermission();
+              if (permission === 'granted') {
+                localStorage.setItem('miritmo_water_reminder_enabled', 'true');
+                this.showToast('¡Recordatorio de agua activado! 💧');
+              } else {
+                waterToggle.checked = false;
+                localStorage.setItem('miritmo_water_reminder_enabled', 'false');
+                alert('Concede permisos de notificación para recibir recordatorios de hidratación.');
+              }
+            } else {
+              waterToggle.checked = false;
+              alert('Tu navegador no soporta la API de Notificaciones.');
+            }
+          } else {
+            localStorage.setItem('miritmo_water_reminder_enabled', 'false');
+            this.showToast('Recordatorio de agua desactivado');
+          }
+        });
+      }
     },
 
     setupReminderEvents() {
@@ -247,18 +418,18 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     },
 
-    showToast(message) {
+    showToast(message, isWater = false) {
       const container = document.getElementById('toast-container');
       if (!container) return;
 
       const toast = document.createElement('div');
-      toast.className = 'toast';
-      toast.innerHTML = `<span>⚠️</span> <span>${message}</span>`;
+      toast.className = `toast ${isWater ? 'toast-water' : ''}`;
+      toast.innerHTML = `<span>${isWater ? '💧' : '🌸'}</span> <span>${message}</span>`;
       container.appendChild(toast);
 
       setTimeout(() => {
         toast.remove();
-      }, 4000);
+      }, 3000);
     },
 
     setupBackupEvents() {
@@ -268,7 +439,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       btnExport?.addEventListener('click', () => {
         const records = StorageModule.getAll();
-        const dataStr = JSON.stringify(records, null, 2);
+        const waterData = WaterStorageModule.getAll();
+        const backupPayload = {
+          version: 2,
+          evacuaciones: records,
+          agua: waterData
+        };
+
+        const dataStr = JSON.stringify(backupPayload, null, 2);
         const blob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const todayStr = toLocalDateStr(new Date());
@@ -293,33 +471,52 @@ document.addEventListener('DOMContentLoaded', () => {
         const reader = new FileReader();
         reader.onload = (event) => {
           try {
-            const importedRecords = JSON.parse(event.target.result);
-            if (!Array.isArray(importedRecords)) {
+            const parsed = JSON.parse(event.target.result);
+            let importedRecords = [];
+            let importedWater = {};
+
+            if (Array.isArray(parsed)) {
+              importedRecords = parsed;
+            } else if (parsed && typeof parsed === 'object') {
+              importedRecords = parsed.evacuaciones || [];
+              importedWater = parsed.agua || {};
+            } else {
               alert('El archivo no tiene un formato de datos válido.');
               return;
             }
 
-            if (confirm(`Se encontraron ${importedRecords.length} registros. ¿Deseas fusionarlos con tu historial actual sin duplicar?`)) {
+            if (confirm(`Se encontraron datos de respaldo. ¿Deseas fusionarlos con tu historial actual sin duplicar?`)) {
+              // Fusionar evacuaciones
               const currentRecords = StorageModule.getAll();
               const map = new Map();
-
               currentRecords.forEach(r => map.set(r.id, r));
               importedRecords.forEach(r => {
-                if (r && r.id && r.date) {
-                  map.set(r.id, r);
+                if (r && r.id && r.date) map.set(r.id, r);
+              });
+              const mergedRecords = Array.from(map.values());
+              mergedRecords.sort((a, b) => b.timestamp - a.timestamp);
+              StorageModule.saveAll(mergedRecords);
+
+              // Fusionar agua
+              const currentWater = WaterStorageModule.getAll();
+              Object.keys(importedWater).forEach(dateKey => {
+                if (!currentWater[dateKey]) {
+                  currentWater[dateKey] = importedWater[dateKey];
+                } else {
+                  currentWater[dateKey].amount = Math.max(
+                    currentWater[dateKey].amount || 0,
+                    importedWater[dateKey].amount || 0
+                  );
+                  currentWater[dateKey].slots = {
+                    ...importedWater[dateKey].slots,
+                    ...currentWater[dateKey].slots
+                  };
                 }
               });
+              WaterStorageModule.saveAll(currentWater);
 
-              const merged = Array.from(map.values());
-              merged.sort((a, b) => b.timestamp - a.timestamp);
-
-              const success = StorageModule.saveAll(merged);
-              if (success) {
-                alert('¡Datos importados con éxito!');
-                this.renderAll();
-              } else {
-                alert('Ocurrió un error al guardar los datos importados.');
-              }
+              alert('¡Datos e historial de agua importados con éxito!');
+              this.renderAll();
             }
           } catch (err) {
             alert('Error al leer el archivo JSON: ' + err.message);
@@ -357,7 +554,9 @@ document.addEventListener('DOMContentLoaded', () => {
           btn.classList.add('active');
           document.getElementById(targetTab).classList.add('active');
 
-          if (targetTab === 'tab-calendario') {
+          if (targetTab === 'tab-agua') {
+            this.renderWaterModule();
+          } else if (targetTab === 'tab-calendario') {
             this.renderCalendar();
           } else if (targetTab === 'tab-estadisticas') {
             this.renderStats();
@@ -563,7 +762,146 @@ document.addEventListener('DOMContentLoaded', () => {
       this.renderWeekSummary(records);
       this.renderRecentRecords(records);
       this.renderCalendar();
+      this.renderWaterModule();
       this.renderStats();
+    },
+
+    renderWaterModule() {
+      const todayStr = toLocalDateStr(new Date());
+      const currentAmount = WaterStorageModule.getAmountByDate(todayStr);
+      const goal = WaterStorageModule.DAILY_GOAL;
+
+      const titleEl = document.getElementById('water-progress-title');
+      const fillEl = document.getElementById('water-progress-fill');
+      const glassesEl = document.getElementById('water-glasses-count');
+      const percentEl = document.getElementById('water-percent-text');
+
+      if (titleEl) titleEl.textContent = `${currentAmount.toLocaleString('es-ES')} de ${goal.toLocaleString('es-ES')} ml`;
+
+      const glassesCount = (currentAmount / 250).toFixed(1).replace('.0', '');
+      if (glassesEl) glassesEl.textContent = `${glassesCount} / 8 vasos`;
+
+      const percentage = Math.min(100, Math.round((currentAmount / goal) * 100));
+      if (fillEl) fillEl.style.width = `${percentage}%`;
+      if (percentEl) percentEl.textContent = `${percentage}%`;
+
+      this.renderWaterSchedule(todayStr);
+      this.renderWaterCalendar();
+    },
+
+    renderWaterSchedule(todayStr) {
+      const container = document.getElementById('water-schedule-list');
+      if (!container) return;
+
+      const scheduleSlots = [
+        { id: 'morning', name: '7:00 - 8:00 AM (Al despertar)', icon: '🌅', benefit: 'Activa la digestión y rehidrata tras el descanso.' },
+        { id: 'midmorning', name: '10:00 - 11:00 AM (Media mañana)', icon: '☀️', benefit: 'Mantiene la concentración y el ritmo intestinal.' },
+        { id: 'lunch', name: '12:30 - 1:30 PM (Antes / Durante almuerzo)', icon: '🥗', benefit: 'Acompaña la asimilación de fibra de los alimentos.' },
+        { id: 'afternoon', name: '3:30 - 4:30 PM (Media tarde)', icon: '🍵', benefit: 'Evita la fatiga de la tarde y la pesadez.' },
+        { id: 'night', name: '8:00 - 9:00 PM (Noche / Antes de cenar)', icon: '🌙', benefit: 'Mantiene el equilibrio hídrico antes del sueño.' }
+      ];
+
+      const activeSlots = WaterStorageModule.getSlotsByDate(todayStr);
+      container.innerHTML = '';
+
+      scheduleSlots.forEach(slot => {
+        const isCompleted = !!activeSlots[slot.id];
+        const item = document.createElement('div');
+        item.className = `water-slot-item ${isCompleted ? 'completed' : ''}`;
+
+        item.innerHTML = `
+          <div class="water-slot-info">
+            <span class="water-slot-icon">${slot.icon}</span>
+            <div class="water-slot-text">
+              <span class="water-slot-name">${slot.name}</span>
+              <span class="water-slot-benefit">${slot.benefit}</span>
+            </div>
+          </div>
+          <button class="btn-check-water" data-slot="${slot.id}">
+            ${isCompleted ? '✓ Bebido' : '+ Marcar'}
+          </button>
+        `;
+
+        item.querySelector('.btn-check-water').addEventListener('click', (e) => {
+          e.stopPropagation();
+          WaterStorageModule.toggleSlot(todayStr, slot.id);
+          this.renderWaterModule();
+        });
+
+        container.appendChild(item);
+      });
+    },
+
+    renderWaterCalendar() {
+      const titleEl = document.getElementById('water-cal-month-title');
+      const gridEl = document.getElementById('water-calendar-days-grid');
+      if (!gridEl) return;
+      gridEl.innerHTML = '';
+
+      const monthNames = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+      ];
+
+      if (titleEl) titleEl.textContent = `${monthNames[this.waterCalendarMonth]} ${this.waterCalendarYear}`;
+
+      const firstDay = new Date(this.waterCalendarYear, this.waterCalendarMonth, 1);
+      const lastDay = new Date(this.waterCalendarYear, this.waterCalendarMonth + 1, 0);
+
+      let startDayOfWeek = firstDay.getDay() - 1;
+      if (startDayOfWeek === -1) startDayOfWeek = 6;
+
+      const totalDays = lastDay.getDate();
+
+      for (let i = 0; i < startDayOfWeek; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'cal-day empty';
+        gridEl.appendChild(emptyCell);
+      }
+
+      const todayStr = toLocalDateStr(new Date());
+
+      for (let day = 1; day <= totalDays; day++) {
+        const dateMonth = String(this.waterCalendarMonth + 1).padStart(2, '0');
+        const dateDay = String(day).padStart(2, '0');
+        const dateStr = `${this.waterCalendarYear}-${dateMonth}-${dateDay}`;
+
+        const waterAmount = WaterStorageModule.getAmountByDate(dateStr);
+        const goalReached = waterAmount >= WaterStorageModule.DAILY_GOAL;
+        const hasWater = waterAmount > 0;
+        const isToday = dateStr === todayStr;
+        const isSelected = dateStr === this.selectedWaterCalendarDateStr;
+
+        const dayCell = document.createElement('div');
+        dayCell.className = `cal-day ${goalReached ? 'water-goal-reached' : ''} ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`;
+
+        dayCell.innerHTML = `
+          <span>${day}</span>
+          ${hasWater ? `<div class="water-dot-indicator"></div>` : ''}
+        `;
+
+        dayCell.addEventListener('click', () => {
+          this.selectedWaterCalendarDateStr = dateStr;
+          this.renderWaterCalendar();
+          this.renderWaterDayDetails(dateStr, waterAmount);
+        });
+
+        gridEl.appendChild(dayCell);
+      }
+    },
+
+    renderWaterDayDetails(dateStr, amount) {
+      const box = document.getElementById('water-day-detail-box');
+      const dateEl = document.getElementById('water-day-detail-date');
+      const valEl = document.getElementById('water-day-detail-val');
+      if (!box) return;
+
+      box.style.display = 'block';
+
+      const d = new Date(dateStr + 'T00:00:00');
+      const dateFormatted = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+      dateEl.textContent = dateFormatted.charAt(0).toUpperCase() + dateFormatted.slice(1);
+      valEl.textContent = `${amount} ml ${amount >= WaterStorageModule.DAILY_GOAL ? '🎉 Meta cumplida' : ''}`;
     },
 
     calculateStreak(records) {

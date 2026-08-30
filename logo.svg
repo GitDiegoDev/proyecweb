@@ -5,12 +5,12 @@
       <stop offset="100%" stop-color="#F0EAE1"/>
     </linearGradient>
     <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#5B9E7E"/>
-      <stop offset="100%" stop-color="#4A8B6E"/>
+      <stop offset="0%" stop-color="#BA9CD0"/>
+      <stop offset="100%" stop-color="#9B7BB4"/>
     </linearGradient>
     <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#9C83AF"/>
-      <stop offset="100%" stop-color="#8A709E"/>
+      <stop offset="0%" stop-color="#6FB391"/>
+      <stop offset="100%" stop-color="#4A8B6E"/>
     </linearGradient>
   </defs>
 
@@ -19,11 +19,11 @@
 
   <!-- Character group -->
   <g transform="translate(0, 15)">
-    <!-- Cute Sprout Leaf Body -->
+    <!-- Cute Sprout Leaf Body (Pastel Lilac) -->
     <path d="M 256 85 C 135 85, 105 235, 105 325 C 105 395, 165 425, 256 425 C 347 425, 407 395, 407 325 C 407 235, 377 85, 256 85 Z" fill="url(#leafGrad)"/>
 
     <!-- Small Leaf Sprout Top -->
-    <path d="M 256 85 C 275 45, 325 35, 355 65 C 335 105, 290 115, 256 85 Z" fill="#6FB391"/>
+    <path d="M 256 85 C 275 45, 325 35, 355 65 C 335 105, 290 115, 256 85 Z" fill="#CBB2E0"/>
 
     <!-- Cute Heart/Flower Accent -->
     <path d="M 355 135 C 355 125, 345 115, 335 125 C 325 115, 315 125, 315 135 C 315 150, 335 165, 335 165 C 335 165, 355 150, 355 135 Z" fill="url(#accentGrad)"/>

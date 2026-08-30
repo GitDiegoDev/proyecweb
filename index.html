@@ -203,6 +203,103 @@
         </div>
       </section>
 
+      <!-- PESTAÑA AGUA -->
+      <section id="tab-agua" class="tab-pane">
+        <!-- Tarjeta de Progreso Diario de Agua -->
+        <div class="card water-card">
+          <div class="water-header">
+            <div class="water-title-group">
+              <span class="water-badge">Meta Diaria</span>
+              <h2 id="water-progress-title">0 de 2,000 ml</h2>
+            </div>
+            <span class="water-hero-icon">💧</span>
+          </div>
+
+          <!-- Barra de Progreso -->
+          <div class="water-progress-container">
+            <div class="water-progress-bar">
+              <div class="water-progress-fill" id="water-progress-fill" style="width: 0%;"></div>
+            </div>
+            <div class="water-progress-labels">
+              <span id="water-glasses-count">0 / 8 vasos</span>
+              <span id="water-percent-text">0%</span>
+            </div>
+          </div>
+
+          <!-- Acciones Rápidas para Agregar Agua -->
+          <div class="water-quick-actions">
+            <button class="btn btn-water" id="btn-add-glass">
+              <span class="btn-icon">🥤</span> +1 Vaso (250 ml)
+            </button>
+            <button class="btn btn-water-alt" id="btn-add-bottle">
+              <span class="btn-icon">🍾</span> +1 Botella (500 ml)
+            </button>
+            <button class="btn btn-secondary btn-icon-only" id="btn-remove-glass" title="Restar 1 vaso">
+              <span>➖</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Horarios Recomendados y Marcar Tomas -->
+        <div class="card water-schedule-card">
+          <div class="card-title-row">
+            <h3>Horarios y momentos clave</h3>
+            <span class="water-schedule-subtitle">Hábitos de hidratación</span>
+          </div>
+          <p class="water-schedule-desc">
+            Repartir el agua a lo largo del día beneficia tu digestión y mantiene tu energía constante.
+          </p>
+
+          <div class="water-schedule-list" id="water-schedule-list">
+            <!-- Renderizado dinámico de horarios -->
+          </div>
+        </div>
+
+        <!-- Calendario de Agua -->
+        <div class="card water-calendar-card">
+          <div class="calendar-header">
+            <button class="btn-icon-only" id="water-cal-prev-month" title="Mes anterior">‹</button>
+            <h3 id="water-cal-month-title">Mes Año</h3>
+            <button class="btn-icon-only" id="water-cal-next-month" title="Mes siguiente">›</button>
+          </div>
+          <p class="water-cal-desc">Revisa el cumplimiento de tu meta de agua día a día.</p>
+
+          <div class="calendar-weekdays">
+            <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+          </div>
+          <div class="calendar-days-grid" id="water-calendar-days-grid">
+            <!-- Grid del calendario de agua -->
+          </div>
+
+          <!-- Detalle del día seleccionado en el calendario de agua -->
+          <div class="water-day-detail-box" id="water-day-detail-box" style="display: none;">
+            <div class="water-day-detail-header">
+              <span id="water-day-detail-date">Fecha</span>
+              <span id="water-day-detail-val" class="water-day-val-badge">0 ml</span>
+            </div>
+            <div class="water-day-detail-actions">
+              <button class="btn btn-secondary btn-sm" id="btn-water-day-add">+ 1 Vaso este día</button>
+              <button class="btn btn-secondary btn-sm" id="btn-water-day-reset">Reiniciar día</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recordatorio de Hidratación PWA -->
+        <div class="card reminder-card">
+          <div class="reminder-header">
+            <div class="reminder-info">
+              <h3>🔔 Recordatorio de beber agua</h3>
+              <p class="reminder-desc">Recibe avisos para mantenerte hidratada/o.</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="toggle-water-reminder">
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <small class="reminder-note">* Genera alertas periódicas de hidratación mientras la app esté activa o mediante notificaciones locales del navegador.</small>
+        </div>
+      </section>
+
       <!-- PESTAÑA CONSEJOS -->
       <section id="tab-consejos" class="tab-pane">
         <div class="card tips-intro-card">
@@ -303,6 +400,10 @@
       <button class="nav-item active" data-tab="tab-inicio">
         <span class="nav-icon">🏠</span>
         <span class="nav-label">Inicio</span>
+      </button>
+      <button class="nav-item" data-tab="tab-agua">
+        <span class="nav-icon">💧</span>
+        <span class="nav-label">Agua</span>
       </button>
       <button class="nav-item" data-tab="tab-calendario">
         <span class="nav-icon">📅</span>
