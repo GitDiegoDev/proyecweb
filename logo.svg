@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FAF8F5"/>
+      <stop offset="100%" stop-color="#F0EAE1"/>
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5B9E7E"/>
+      <stop offset="100%" stop-color="#4A8B6E"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9C83AF"/>
+      <stop offset="100%" stop-color="#8A709E"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background Card -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)"/>
+
+  <!-- Character group -->
+  <g transform="translate(0, 15)">
+    <!-- Cute Sprout Leaf Body -->
+    <path d="M 256 85 C 135 85, 105 235, 105 325 C 105 395, 165 425, 256 425 C 347 425, 407 395, 407 325 C 407 235, 377 85, 256 85 Z" fill="url(#leafGrad)"/>
+
+    <!-- Small Leaf Sprout Top -->
+    <path d="M 256 85 C 275 45, 325 35, 355 65 C 335 105, 290 115, 256 85 Z" fill="#6FB391"/>
+
+    <!-- Cute Heart/Flower Accent -->
+    <path d="M 355 135 C 355 125, 345 115, 335 125 C 325 115, 315 125, 315 135 C 315 150, 335 165, 335 165 C 335 165, 355 150, 355 135 Z" fill="url(#accentGrad)"/>
+
+    <!-- Face -->
+    <circle cx="205" cy="265" r="14" fill="#24382E"/>
+    <circle cx="307" cy="265" r="14" fill="#24382E"/>
+    <circle cx="209" cy="260" r="5" fill="#FFFFFF"/>
+    <circle cx="311" cy="260" r="5" fill="#FFFFFF"/>
+
+    <ellipse cx="178" cy="290" rx="16" ry="10" fill="#F0B2C0" opacity="0.7"/>
+    <ellipse cx="334" cy="290" rx="16" ry="10" fill="#F0B2C0" opacity="0.7"/>
+
+    <path d="M 236 290 Q 256 314 276 290" stroke="#24382E" stroke-width="6" stroke-linecap="round" fill="none"/>
+  </g>
+</svg>

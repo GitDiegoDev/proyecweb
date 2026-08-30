@@ -1,7 +1,7 @@
 {
-  "name": "Mi Ritmo - Control Intestinal",
+  "name": "Mi Ritmo - Tu bienestar día a día",
   "short_name": "Mi Ritmo",
-  "description": "Seguimiento y orientación para tu bienestar intestinal",
+  "description": "Tu espacio personal para acompañar tu ritmo y bienestar día a día",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#FAF8F5",
