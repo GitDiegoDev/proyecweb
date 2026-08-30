@@ -4,6 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mi Ritmo - Control y Bienestar Intestinal</title>
+  <!-- PWA Meta Tags & Icons -->
+  <meta name="theme-color" content="#4A8B6E">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Mi Ritmo">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -19,14 +28,14 @@
       </div>
       <div class="header-greeting" id="header-greeting">
         <span id="greeting-text">Hola 🌸</span>
-        <span class="greeting-subtitle">Cuidando tu bienestar cada día</span>
+        <span class="greeting-subtitle">Tu ritmo hoy</span>
       </div>
     </header>
 
     <!-- Indicador de Privacidad -->
     <div class="privacy-badge">
       <span class="lock-icon">🔒</span>
-      <span>Tus registros se guardan <strong>solamente en este dispositivo</strong>.</span>
+      <span>Tus datos son 100% privados y se guardan solo en tu dispositivo</span>
     </div>
 
     <!-- Contenido Principal Dinámico -->
@@ -46,25 +55,25 @@
             </div>
           </div>
           <button class="btn btn-primary btn-lg btn-action" id="btn-open-modal-main">
-            <span class="btn-icon">✨</span> Fui al baño
+            <span class="btn-icon">+</span> Registrar Evacuación
           </button>
         </div>
 
         <!-- Tarjeta de Recomendación Automática -->
         <div class="card recommendation-card" id="recommendation-card">
           <div class="recommendation-header">
-            <span class="rec-icon" id="rec-icon">🌿</span>
-            <h3 id="rec-title">Orientación personal</h3>
+            <span class="rec-icon" id="rec-icon">💡</span>
+            <h3 id="rec-title">Recomendación del Día</h3>
           </div>
           <p id="rec-message" class="rec-message">
             Registra tu primera evacuación para comenzar a recibir recomendaciones adaptadas a tu ritmo.
           </p>
         </div>
 
-        <!-- Resumen de los últimos 7 días -->
+        <!-- Resumen de la semana -->
         <div class="card week-summary-card">
           <div class="card-title-row">
-            <h3>Últimos 7 días</h3>
+            <h3>Resumen de la semana</h3>
             <span class="week-summary-count" id="week-summary-count">0 registros</span>
           </div>
           <div class="week-days-grid" id="week-days-grid">
@@ -261,7 +270,7 @@
       </button>
       <button class="nav-item" data-tab="tab-calendario">
         <span class="nav-icon">📅</span>
-        <span class="nav-label">Calendario</span>
+        <span class="nav-label">Historial</span>
       </button>
       <button class="nav-item" data-tab="tab-estadisticas">
         <span class="nav-icon">📈</span>
