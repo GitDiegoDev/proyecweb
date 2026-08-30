@@ -3,6 +3,13 @@
  * Lógica en JavaScript Vanilla (Sin dependencias externas)
  */
 
+function toLocalDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // ==========================================================================
   // 1. MÓDULO DE ALMACENAMIENTO (StorageModule)
@@ -23,8 +30,11 @@ document.addEventListener('DOMContentLoaded', () => {
     saveAll(records) {
       try {
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(records));
+        return true;
       } catch (e) {
         console.error('Error al guardar en localStorage', e);
+        UIController.showToast('No se pudo guardar el registro en tu dispositivo. Es posible que el almacenamiento esté lleno.');
+        return false;
       }
     },
 
@@ -64,8 +74,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!records || records.length === 0) {
         return {
           icon: '🌱',
-          title: '¡Bienvenida/o a Mi Ritmo!',
-          message: 'Registra tu primera evacuación presionando "Fui al baño" para comenzar a hacer un seguimiento y recibir recomendaciones adaptadas.'
+          title: '¡Bienvenida a Mi Ritmo!',
+          message: 'Registra tu primera visita presionando "¿Cómo te fue hoy?" para comenzar a acompañar tu ritmo y recibir recomendaciones adaptadas.'
         };
       }
 
@@ -85,58 +95,62 @@ document.addEventListener('DOMContentLoaded', () => {
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const recentRecords = records.filter(r => new Date(r.timestamp) >= sevenDaysAgo);
 
-      const hardStoolsCount = recentRecords.filter(r => r.consistency === 'dura' || r.consistency === 'muy dura').length;
+      const hasBlood = records.some(r => r.blood === 'sí');
+      const hasFever = records.some(r => r.fever === 'sí');
       const painCount = recentRecords.filter(r => r.pain === 'sí').length;
-      const hardDifficultyCount = recentRecords.filter(r => r.difficulty === 'difícil' || r.difficulty === 'muy difícil').length;
 
-      // 1. Advertencias por síntomas de molestia continuos
-      if (painCount >= 3 || hardDifficultyCount >= 4) {
+      // 1. Alertas de atención médica inmediata por banderas rojas o molestias frecuentes
+      if (hasBlood || hasFever || painCount >= 3) {
+        let alertReason = '';
+        if (hasBlood) alertReason = 'sangre en los registros';
+        else if (hasFever) alertReason = 'fiebre o malestar general';
+        else alertReason = 'molestias o dolor en 3 o más ocasiones esta semana';
+
         return {
-          icon: '⚠️',
-          title: 'Atención a tus molestias',
-          message: 'Has registrado dolor o dificultad en varias ocasiones recientes. Recuerda mantenerte hidratada/o y consumir alimentos suaves ricos en fibra. Si las molestias persisten o se intensifican, te sugerimos consultar con un profesional de la salud.'
+          icon: '🩺',
+          title: 'Consulta médica sugerida',
+          message: `Has indicado ${alertReason}. Te recomendamos consultar con un profesional de la salud a la brevedad para evaluar tu bienestar de forma segura y personalizada.`,
+          isAlert: true
         };
       }
 
-      if (hardStoolsCount >= 3) {
-        return {
-          icon: '🥑',
-          title: 'Sugerencia de fibra e hidratación',
-          message: 'En tus últimos registros predominan las heces duras. Incrementar el consumo de agua, frutas frescas (como ciruelas o manzanas) y semillas de chía o lino puede ayudarte a suavizarlas.'
-        };
-      }
-
-      // 2. Orientación según días sin registrar
+      // 2. Orientación según días transcurridos sin registros
       if (diffDays === 0) {
         return {
           icon: '✨',
           title: 'Ritmo al día',
-          message: '¡Excelente! Ya registraste tu evacuación de hoy. Mantén tus buenos hábitos de hidratación y movimiento corporal.'
+          message: '¡Excelente! Ya registraste tu visita de hoy. Mantén tus buenos hábitos de hidratación, alimentación variada y movimiento constante.'
         };
       } else if (diffDays === 1) {
         return {
           icon: '🌿',
-          title: 'Ritmo habitual',
-          message: 'Tu último registro fue ayer. Tu digestión evoluciona con regularidad. Continúa bebiendo agua y escuchando a tu cuerpo.'
+          title: 'Ritmo cómodo',
+          message: 'Tu último registro fue ayer. Tu cuerpo evoluciona con tranquilidad. Continúa escuchándote y bebiendo suficiente agua durante el día.'
         };
       } else if (diffDays >= 2 && diffDays <= 3) {
         return {
           icon: '💧',
-          title: 'Un par de días sin registrar',
-          message: `Han pasado ${diffDays} días desde tu última evacuación. Procura tomar un vaso extra de agua, dar un paseo ligero y consumir verduras u hortalizas frescas.`
+          title: 'Un par de días de pausa',
+          message: `Han pasado ${diffDays} días sin registrar visitas. Para acompañar a tu colon, aumenta el consumo de fibra (18-30g diarios, incrementándola de forma gradual), bebe 1.5 a 2 litros de agua y procura ir al baño a un horario fijo (idealmente 15-45 minutos después de una comida).`
         };
-      } else if (diffDays >= 4) {
+      } else if (diffDays >= 4 && diffDays <= 6) {
         return {
           icon: '🧘‍♀️',
-          title: 'Varios días en pausa',
-          message: `Llevas ${diffDays} días sin registrar evacuaciones. Te aconsejamos beber bastante agua (1.5-2L), evitar el sedentarismo y realizar masajes abdominales suaves. Si sientes distensión fuerte o dolor, consulta con un médico.`
+          title: 'Cuidando tu cuerpo',
+          message: `Llevas ${diffDays} días sin registrar visitas. Además de mantener la hidratación y la fibra gradual, intenta apoyar los pies sobre un banquito bajo en el inodoro para que las rodillas queden por encima de las caderas. Si no notas mejoría, puedes consultar con un farmacéutico.`
+        };
+      } else if (diffDays >= 7) {
+        return {
+          icon: '🩺',
+          title: 'Es momento de consultar',
+          message: `Han transcurrido ${diffDays} días sin registro de visitas. Te recomendamos consultar directamente con tu médico o farmacéutico para recibir una guía adecuada a tus necesidades.`
         };
       }
 
       return {
         icon: '🌸',
         title: 'Cuidando tu bienestar',
-        message: 'Registrar diariamente tus hábitos ayuda a identificar patrones y mejorar tu digestión de forma natural.'
+        message: 'Acompañar diariamente tu ritmo ayuda a identificar patrones y cuidar tu salud digestiva de forma natural.'
       };
     }
   };
@@ -155,7 +169,166 @@ document.addEventListener('DOMContentLoaded', () => {
       this.setupModalEvents();
       this.setupFormChips();
       this.setupCalendarEvents();
+      this.setupBackupEvents();
+      this.setupReminderEvents();
+      this.checkDailyReminder();
       this.renderAll();
+    },
+
+    setupReminderEvents() {
+      const toggle = document.getElementById('toggle-reminder');
+      if (!toggle) return;
+
+      const savedState = localStorage.getItem('miritmo_reminder_enabled') === 'true';
+      toggle.checked = savedState;
+
+      toggle.addEventListener('change', async () => {
+        if (toggle.checked) {
+          if ('Notification' in window) {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+              localStorage.setItem('miritmo_reminder_enabled', 'true');
+              this.showToast('¡Recordatorios diarios activados! 🌸');
+              this.checkDailyReminder();
+            } else {
+              toggle.checked = false;
+              localStorage.setItem('miritmo_reminder_enabled', 'false');
+              alert('Necesitas conceder permisos de notificación en tu navegador para activar el recordatorio.');
+            }
+          } else {
+            toggle.checked = false;
+            alert('Tu navegador no soporta la API de Notificaciones.');
+          }
+        } else {
+          localStorage.setItem('miritmo_reminder_enabled', 'false');
+          this.showToast('Recordatorios desactivados');
+        }
+      });
+    },
+
+    /**
+     * Aclaración técnica: Los navegadores en entornos PWA sin servidor backend (Push Service)
+     * no garantizan la ejecución de notificaciones programadas en segundo plano cuando la app está totalmente cerrada.
+     * Se implementa como la mejor aproximación posible:
+     * 1) Verificación al abrir la aplicación si aún no se registró nada hoy y las notificaciones están activadas.
+     * 2) Intento de programación mediante Notification Trigger API (si el navegador la soporta).
+     */
+    checkDailyReminder() {
+      const isEnabled = localStorage.getItem('miritmo_reminder_enabled') === 'true';
+      if (!isEnabled || !('Notification' in window) || Notification.permission !== 'granted') {
+        return;
+      }
+
+      const records = StorageModule.getAll();
+      const todayStr = toLocalDateStr(new Date());
+      const hasTodayRecord = records.some(r => r.date === todayStr);
+
+      if (!hasTodayRecord) {
+        // Enviar notificación local al abrir si aún no ha registrado
+        const lastNotifDate = localStorage.getItem('miritmo_last_notif_date');
+        if (lastNotifDate !== todayStr) {
+          if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.ready.then(reg => {
+              reg.showNotification('Mi Ritmo 🌸', {
+                body: '¿Cómo te fue hoy? Recuerda registrar tu visita diaria para cuidar tu bienestar.',
+                icon: 'icons/icon-192.png',
+                badge: 'icons/icon-192.png',
+                tag: 'daily-reminder'
+              });
+            });
+          } else {
+            new Notification('Mi Ritmo 🌸', {
+              body: '¿Cómo te fue hoy? Recuerda registrar tu visita diaria para cuidar tu bienestar.',
+              icon: 'icons/icon-192.png'
+            });
+          }
+          localStorage.setItem('miritmo_last_notif_date', todayStr);
+        }
+      }
+    },
+
+    showToast(message) {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.innerHTML = `<span>⚠️</span> <span>${message}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.remove();
+      }, 4000);
+    },
+
+    setupBackupEvents() {
+      const btnExport = document.getElementById('btn-export-data');
+      const btnImportTrigger = document.getElementById('btn-import-trigger');
+      const fileInput = document.getElementById('file-import-json');
+
+      btnExport?.addEventListener('click', () => {
+        const records = StorageModule.getAll();
+        const dataStr = JSON.stringify(records, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const todayStr = toLocalDateStr(new Date());
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mi-ritmo-backup-${todayStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+
+      btnImportTrigger?.addEventListener('click', () => {
+        fileInput.click();
+      });
+
+      fileInput?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const importedRecords = JSON.parse(event.target.result);
+            if (!Array.isArray(importedRecords)) {
+              alert('El archivo no tiene un formato de datos válido.');
+              return;
+            }
+
+            if (confirm(`Se encontraron ${importedRecords.length} registros. ¿Deseas fusionarlos con tu historial actual sin duplicar?`)) {
+              const currentRecords = StorageModule.getAll();
+              const map = new Map();
+
+              currentRecords.forEach(r => map.set(r.id, r));
+              importedRecords.forEach(r => {
+                if (r && r.id && r.date) {
+                  map.set(r.id, r);
+                }
+              });
+
+              const merged = Array.from(map.values());
+              merged.sort((a, b) => b.timestamp - a.timestamp);
+
+              const success = StorageModule.saveAll(merged);
+              if (success) {
+                alert('¡Datos importados con éxito!');
+                this.renderAll();
+              } else {
+                alert('Ocurrió un error al guardar los datos importados.');
+              }
+            }
+          } catch (err) {
+            alert('Error al leer el archivo JSON: ' + err.message);
+          } finally {
+            fileInput.value = '';
+          }
+        };
+        reader.readAsText(file);
+      });
     },
 
     updateGreeting() {
@@ -211,11 +384,13 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('form-record-id').value = '';
 
         if (recordToEdit) {
-          document.getElementById('modal-title').textContent = 'Editar Evacuación';
+          document.getElementById('modal-title').textContent = 'Editar mi registro';
           document.getElementById('form-record-id').value = recordToEdit.id;
           document.getElementById('form-date').value = recordToEdit.date;
           document.getElementById('form-time').value = recordToEdit.time;
           document.getElementById('form-notes').value = recordToEdit.notes || '';
+          document.getElementById('form-blood').checked = recordToEdit.blood === 'sí';
+          document.getElementById('form-fever').checked = recordToEdit.fever === 'sí';
 
           this.setChipValue('group-difficulty', 'form-difficulty', recordToEdit.difficulty);
           this.setChipValue('group-pain', 'form-pain', recordToEdit.pain);
@@ -223,13 +398,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
           btnDelete.style.display = 'block';
         } else {
-          document.getElementById('modal-title').textContent = 'Registrar Evacuación';
+          document.getElementById('modal-title').textContent = '¿Cómo te fue hoy?';
           const now = new Date();
-          const todayStr = defaultDateStr || now.toISOString().split('T')[0];
+          const todayStr = defaultDateStr || toLocalDateStr(now);
           const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
           document.getElementById('form-date').value = todayStr;
           document.getElementById('form-time').value = timeStr;
+          document.getElementById('form-notes').value = '';
+          document.getElementById('form-blood').checked = false;
+          document.getElementById('form-fever').checked = false;
 
           this.setChipValue('group-difficulty', 'form-difficulty', 'normal');
           this.setChipValue('group-pain', 'form-pain', 'no');
@@ -257,10 +435,12 @@ document.addEventListener('DOMContentLoaded', () => {
       // Eliminar Registro
       btnDelete.addEventListener('click', () => {
         const id = document.getElementById('form-record-id').value;
-        if (id && confirm('¿Deseas eliminar este registro?')) {
-          StorageModule.deleteRecord(id);
-          closeModal();
-          this.renderAll();
+        if (id) {
+          this.showConfirmModal(() => {
+            StorageModule.deleteRecord(id);
+            closeModal();
+            this.renderAll();
+          });
         }
       });
 
@@ -274,6 +454,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const difficulty = document.getElementById('form-difficulty').value;
         const pain = document.getElementById('form-pain').value;
         const consistency = document.getElementById('form-consistency').value;
+        const blood = document.getElementById('form-blood').checked ? 'sí' : 'no';
+        const fever = document.getElementById('form-fever').checked ? 'sí' : 'no';
         const notes = document.getElementById('form-notes').value.trim();
 
         // Crear objeto Timestamp preciso
@@ -287,6 +469,8 @@ document.addEventListener('DOMContentLoaded', () => {
           difficulty,
           pain,
           consistency,
+          blood,
+          fever,
           notes
         };
 
@@ -306,13 +490,18 @@ document.addEventListener('DOMContentLoaded', () => {
     setupFormChips() {
       const configureChipGroup = (groupId, hiddenInputId) => {
         const container = document.getElementById(groupId);
+        if (!container) return;
         const hiddenInput = document.getElementById(hiddenInputId);
         const chips = container.querySelectorAll('.chip');
 
         chips.forEach(chip => {
           chip.addEventListener('click', () => {
-            chips.forEach(c => c.classList.remove('active'));
+            chips.forEach(c => {
+              c.classList.remove('active');
+              c.setAttribute('aria-pressed', 'false');
+            });
             chip.classList.add('active');
+            chip.setAttribute('aria-pressed', 'true');
             hiddenInput.value = chip.getAttribute('data-value');
           });
         });
@@ -325,6 +514,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setChipValue(groupId, hiddenInputId, value) {
       const container = document.getElementById(groupId);
+      if (!container) return;
       const hiddenInput = document.getElementById(hiddenInputId);
       hiddenInput.value = value;
 
@@ -332,8 +522,10 @@ document.addEventListener('DOMContentLoaded', () => {
       chips.forEach(chip => {
         if (chip.getAttribute('data-value') === value) {
           chip.classList.add('active');
+          chip.setAttribute('aria-pressed', 'true');
         } else {
           chip.classList.remove('active');
+          chip.setAttribute('aria-pressed', 'false');
         }
       });
     },
@@ -374,18 +566,46 @@ document.addEventListener('DOMContentLoaded', () => {
       this.renderStats();
     },
 
+    calculateStreak(records) {
+      if (!records || records.length === 0) return 0;
+
+      const recordDates = new Set(records.map(r => r.date));
+      const today = new Date();
+      let checkDate = new Date(today);
+      let todayStr = toLocalDateStr(checkDate);
+
+      // Si hoy no hay registro, verificar si ayer hubo registro para mantener la racha activa
+      if (!recordDates.has(todayStr)) {
+        checkDate.setDate(checkDate.getDate() - 1);
+        let yesterdayStr = toLocalDateStr(checkDate);
+        if (!recordDates.has(yesterdayStr)) {
+          return 0;
+        }
+      }
+
+      let streak = 0;
+      while (recordDates.has(toLocalDateStr(checkDate))) {
+        streak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+      return streak;
+    },
+
     renderStatusCard(records) {
       const counterNumber = document.getElementById('counter-number');
       const counterLabel = document.getElementById('counter-label');
       const statusBadge = document.getElementById('status-badge');
       const statusLastDate = document.getElementById('status-last-date');
+      const streakEl = document.getElementById('streak-counter');
+      const streakText = document.getElementById('streak-text');
 
       if (!records || records.length === 0) {
         counterNumber.textContent = '--';
-        counterLabel.textContent = 'sin evacuaciones registradas';
+        counterLabel.textContent = 'sin visitas registradas';
         statusBadge.textContent = 'Sin datos';
         statusBadge.className = 'status-badge';
         statusLastDate.textContent = 'Registra para comenzar';
+        if (streakEl) streakEl.style.display = 'none';
         return;
       }
 
@@ -421,13 +641,29 @@ document.addEventListener('DOMContentLoaded', () => {
         statusBadge.textContent = 'Sin registro reciente';
         statusBadge.className = 'status-badge warning';
       }
+
+      // Renderizar Racha
+      const streak = this.calculateStreak(records);
+      if (streak > 0 && streakEl && streakText) {
+        streakText.textContent = `${streak} ${streak === 1 ? 'día seguido' : 'días seguidos'}`;
+        streakEl.style.display = 'inline-flex';
+      } else if (streakEl) {
+        streakEl.style.display = 'none';
+      }
     },
 
     renderRecommendation(records) {
       const rec = RecommendationEngine.generate(records);
+      const card = document.getElementById('recommendation-card');
       document.getElementById('rec-icon').textContent = rec.icon;
       document.getElementById('rec-title').textContent = rec.title;
       document.getElementById('rec-message').textContent = rec.message;
+
+      if (rec.isAlert && card) {
+        card.classList.add('tip-warning');
+      } else if (card) {
+        card.classList.remove('tip-warning');
+      }
     },
 
     renderWeekSummary(records) {
@@ -444,7 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(today.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
+        const dateStr = toLocalDateStr(d);
         const dayRecords = records.filter(r => r.date === dateStr);
         weekRecordsCount += dayRecords.length;
 
@@ -480,7 +716,7 @@ document.addEventListener('DOMContentLoaded', () => {
         listEl.innerHTML = `
           <div class="empty-state">
             <span class="empty-icon">📝</span>
-            <p>Aún no has agregado ninguna evacuación.</p>
+            <p>Aún no has registrado tu visita de hoy.</p>
             <button class="btn btn-secondary btn-sm" id="btn-open-modal-empty">Agregar primer registro</button>
           </div>
         `;
@@ -560,7 +796,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gridEl.appendChild(emptyCell);
       }
 
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = toLocalDateStr(new Date());
 
       // Días del mes
       for (let day = 1; day <= totalDays; day++) {
@@ -605,7 +841,7 @@ document.addEventListener('DOMContentLoaded', () => {
       list.innerHTML = '';
 
       if (dayRecords.length === 0) {
-        list.innerHTML = `<p class="empty-state">No hay evacuaciones registradas este día.</p>`;
+        list.innerHTML = `<p class="empty-state">No hay visitas registradas este día.</p>`;
       } else {
         dayRecords.forEach(r => {
           const item = this.createRecordItemDOM(r);
@@ -701,7 +937,7 @@ document.addEventListener('DOMContentLoaded', () => {
       for (let i = daysCount - 1; i >= 0; i--) {
         const d = new Date();
         d.setDate(today.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
+        const dateStr = toLocalDateStr(d);
         const count = records.filter(r => r.date === dateStr).length;
         if (count > maxDayCount) maxDayCount = count;
         dailyData.push({ dateStr, count });
@@ -710,7 +946,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dailyData.forEach(item => {
         const col = document.createElement('div');
         col.className = 'evo-bar-col';
-        col.title = `${item.dateStr}: ${item.count} evacuación/es`;
+        col.title = `${item.dateStr}: ${item.count} visita/s`;
 
         const heightPercent = item.count > 0 ? (item.count / maxDayCount) * 100 : 8;
         const isBarEmpty = item.count === 0;

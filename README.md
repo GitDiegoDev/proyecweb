@@ -1,16 +1,16 @@
-# Mi Ritmo - Control y Bienestar Intestinal 🌿
+# Mi Ritmo - Tu bienestar día a día 🌿🌸
 
-**Mi Ritmo** es una aplicación web simple, liviana, privada y agradable diseñada para el registro y seguimiento de la frecuencia y consistencia de las evacuaciones intestinales, ayudando a las personas a comprender la evolución de su ritmo digestivo.
+**Mi Ritmo** es una aplicación web cálida, privada y amable diseñada para acompañar tu bienestar y el seguimiento de tu ritmo digestivo diario de forma cotidiana y sin lenguaje clínico.
 
 ## ✨ Características Principales
 
-- **Registro Rápido ("Fui al baño"):** Captura fecha, hora, nivel de dificultad, presencia de molestias/dolor, consistencia de las heces y notas opcionales en cuestión de segundos.
+- **Registro Rápido ("¿Cómo te fue hoy?"):** Registra fecha, hora, cómo te sentiste, presencia de molestias, consistencia y notas opcionales en cuestión de segundos.
 - **Resumen Inteligente en Inicio:**
-  - Contador de días transcurridos desde el último registro.
+  - Contador de días transcurridos desde tu último registro y contador de racha.
   - Resumen visual interactivo de los últimos 7 días.
   - Orientaciones y sugerencias automáticas de bienestar basadas en tus hábitos recientes (hidratación, fibra, movimiento).
-- **Calendario Mensual Interactivo:** Consulta los días en los que registraste evacuaciones y edita o agrega entradas directamente sobre cualquier fecha elegida.
-- **Estadísticas de Evolución:** Visualiza métricas clave como total de evacuaciones, promedio semanal, mayor brecha sin registrar, días con molestias y gráfico de consistencia/evolución de los últimos 30 días.
+- **Calendario Mensual Interactivo:** Consulta los días en los que registraste tu visita y edita o agrega entradas directamente sobre cualquier fecha elegida.
+- **Estadísticas de Evolución:** Visualiza métricas clave como visitas totales, promedio semanal, mayor pausa entre visitas, días con molestias y gráfico de consistencia/evolución de los últimos 30 días.
 - **Sección de Consejos Integrada:** Guías prácticas sobre nutrición rica en fibra, consumo de agua, actividad física, hábitos en el baño y señales de alerta para consultar con un profesional de la salud.
 
 ## 🔒 Privacidad Garantizada
