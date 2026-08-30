@@ -1,864 +1,722 @@
-// ==========================================
-// CONFIGURACIÓN Y UTILIDADES
-// ==========================================
-const CONFIG = {
-  DEBOUNCE_DELAY: 300,
-  BACKUP_INTERVAL: 300000, // 5 minutos
-  MAX_PRODUCTOS: 10000,
-  MAX_MOVIMIENTOS: 50000,
-  ITEMS_PER_PAGE: 50
-};
+/**
+ * MI RITMO - Aplicación Web MVP de Seguimiento de Hábitos Intestinales
+ * Lógica en JavaScript Vanilla (Sin dependencias externas)
+ */
 
-const ICONS = {
-  'Sillones':'🛋️','Mesas':'🪵','Sillas':'🪑','Espejos':'🪞','Cuadros':'🖼️',
-  'Recibidores':'🚪','Muebles Artely':'🏢','Plantas':'🪴','Cristalería':'🍷',
-  'Flores':'💐','Navidad':'🎄','Pascua':'🐰','Macetas':'🏺','Decoración':'🏺',
-  'Individuales':'🍽️','Mesas Ratonas':'🛋️','Otro':'📦'
-};
+document.addEventListener('DOMContentLoaded', () => {
+  // ==========================================================================
+  // 1. MÓDULO DE ALMACENAMIENTO (StorageModule)
+  // ==========================================================================
+  const StorageModule = {
+    STORAGE_KEY: 'miritmo_evacuaciones',
 
-// ==========================================
-// CAPA DE DATOS (Data Layer)
-// ==========================================
-const DataLayer = {
-  get() {
-    try {
-      const raw = localStorage.getItem('deposito_data');
-      const parsed = raw ? JSON.parse(raw) : null;
-      if (parsed && Array.isArray(parsed.productos) && Array.isArray(parsed.movimientos)) {
-        return parsed;
+    getAll() {
+      try {
+        const data = localStorage.getItem(this.STORAGE_KEY);
+        return data ? JSON.parse(data) : [];
+      } catch (e) {
+        console.error('Error al leer de localStorage', e);
+        return [];
       }
-    } catch (e) {
-      console.error('Error leyendo datos:', e);
-    }
-    return { productos: [], movimientos: [] };
-  },
+    },
 
-  save(data) {
-    try {
-      localStorage.setItem('deposito_data', JSON.stringify(data));
-      EventBus.emit('data:changed', data);
-      return true;
-    } catch (e) {
-      if (e.name === 'QuotaExceededError') {
-        showToast('⚠️ Almacenamiento lleno. Exportá y limpiá datos.', 'error');
+    saveAll(records) {
+      try {
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(records));
+      } catch (e) {
+        console.error('Error al guardar en localStorage', e);
       }
-      return false;
+    },
+
+    addRecord(record) {
+      const records = this.getAll();
+      records.push(record);
+      // Ordenar por timestamp descendente (más reciente primero)
+      records.sort((a, b) => b.timestamp - a.timestamp);
+      this.saveAll(records);
+      return record;
+    },
+
+    updateRecord(updatedRecord) {
+      let records = this.getAll();
+      records = records.map(r => r.id === updatedRecord.id ? updatedRecord : r);
+      records.sort((a, b) => b.timestamp - a.timestamp);
+      this.saveAll(records);
+    },
+
+    deleteRecord(id) {
+      let records = this.getAll();
+      records = records.filter(r => r.id !== id);
+      this.saveAll(records);
+    },
+
+    getById(id) {
+      const records = this.getAll();
+      return records.find(r => r.id === id);
     }
-  },
-
-  getProductById(id) {
-    return this.get().productos.find(p => p.id === id);
-  },
-
-  getMovementsByProduct(id) {
-    return this.get().movimientos.filter(m => m.productoId === id);
-  },
-
-  getStats() {
-    const data = this.get();
-    const totalProductos = data.productos.length;
-    const totalUnidades = data.productos.reduce((a, p) => a + p.stock, 0);
-    const critico = data.productos.filter(p => p.stock === 0).length;
-    const bajo = data.productos.filter(p => p.stock > 0 && p.stock <= 2).length;
-    return { totalProductos, totalUnidades, critico, bajo };
-  }
-};
-
-// Event Bus simple
-const EventBus = {
-  events: {},
-  on(event, cb) {
-    if (!this.events[event]) this.events[event] = [];
-    this.events[event].push(cb);
-  },
-  emit(event, data) {
-    if (this.events[event]) {
-      this.events[event].forEach(cb => cb(data));
-    }
-  }
-};
-
-// ==========================================
-// UTILIDADES
-// ==========================================
-function sanitizeInput(str) {
-  if (!str) return '';
-  return str.replace(/[<>]/g, '').trim();
-}
-
-function normalizeText(text) {
-  if (!text) return '';
-  const map = {
-    'cero': '0', 'un': '1', 'uno': '1', 'dos': '2', 'tres': '3', 'cuatro': '4',
-    'cinco': '5', 'seis': '6', 'siete': '7', 'ocho': '8', 'nueve': '9', 'diez': '10'
   };
-  let n = text.toLowerCase().trim();
-  n = n.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  for (let word in map) {
-    n = n.replace(new RegExp(`\\b${word}\\b`, 'g'), map[word]);
-  }
-  return n.replace(/[^a-z0-9\s/]/g, '').replace(/\s+/g, ' ');
-}
 
-function validateProducto(nombre, stock) {
-  if (!nombre || nombre.length < 2) return 'El nombre debe tener al menos 2 caracteres';
-  if (nombre.length > 100) return 'El nombre es demasiado largo (máx 100)';
-  if (isNaN(stock) || stock < 0) return 'El stock no puede ser negativo';
-  if (stock > 99999) return 'Stock demasiado alto';
-  return null;
-}
+  // ==========================================================================
+  // 2. MOTOR DE RECOMENDACIONES (RecommendationEngine)
+  // ==========================================================================
+  const RecommendationEngine = {
+    generate(records) {
+      if (!records || records.length === 0) {
+        return {
+          icon: '🌱',
+          title: '¡Bienvenida/o a Mi Ritmo!',
+          message: 'Registra tu primera evacuación presionando "Fui al baño" para comenzar a hacer un seguimiento y recibir recomendaciones adaptadas.'
+        };
+      }
 
-function getStockStatus(stock) {
-  if (stock === 0) return { class: 'qty-zero', label: 'Sin stock', color: 'var(--red)' };
-  if (stock <= 2) return { class: 'qty-low', label: 'Stock crítico', color: '#f59e0b' };
-  if (stock <= 5) return { class: 'qty-medium', label: 'Stock bajo', color: 'var(--blue)' };
-  return { class: 'qty-good', label: 'OK', color: 'var(--green)' };
-}
+      // Ordenados por timestamp descendente
+      const latest = records[0];
+      const now = new Date();
+      const lastDate = new Date(latest.timestamp);
 
-function formatDate(dateStr) {
-  const d = new Date(dateStr);
-  return d.toLocaleString('es-ES', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit'
-  });
-}
+      // Diferencia en días (reseteando horas para comparar días calendario)
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const lastDateStart = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate());
+      const diffTime = todayStart.getTime() - lastDateStart.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
 
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-}
+      // Análisis de los últimos 7 días
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const recentRecords = records.filter(r => new Date(r.timestamp) >= sevenDaysAgo);
 
-function toggleExpand(el) {
-  el.classList.toggle('expanded');
-}
+      const hardStoolsCount = recentRecords.filter(r => r.consistency === 'dura' || r.consistency === 'muy dura').length;
+      const painCount = recentRecords.filter(r => r.pain === 'sí').length;
+      const hardDifficultyCount = recentRecords.filter(r => r.difficulty === 'difícil' || r.difficulty === 'muy difícil').length;
 
-function getCuerpos(p) {
-  const text = normalizeText((p.nombre || '') + ' ' + (p.notas || ''));
-  const match = text.match(/(\d+)\s*cuerpos?/);
-  return match ? parseInt(match[1]) : 0;
-}
+      // 1. Advertencias por síntomas de molestia continuos
+      if (painCount >= 3 || hardDifficultyCount >= 4) {
+        return {
+          icon: '⚠️',
+          title: 'Atención a tus molestias',
+          message: 'Has registrado dolor o dificultad en varias ocasiones recientes. Recuerda mantenerte hidratada/o y consumir alimentos suaves ricos en fibra. Si las molestias persisten o se intensifican, te sugerimos consultar con un profesional de la salud.'
+        };
+      }
 
-// Debounce para búsqueda
-let searchTimeout;
-function debouncedSearch() {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(renderStock, CONFIG.DEBOUNCE_DELAY);
-}
+      if (hardStoolsCount >= 3) {
+        return {
+          icon: '🥑',
+          title: 'Sugerencia de fibra e hidratación',
+          message: 'En tus últimos registros predominan las heces duras. Incrementar el consumo de agua, frutas frescas (como ciruelas o manzanas) y semillas de chía o lino puede ayudarte a suavizarlas.'
+        };
+      }
 
-// ==========================================
-// AUDITORÍA
-// ==========================================
-function logAudit(action, details = {}) {
-  try {
-    const audit = JSON.parse(localStorage.getItem('deposito_audit') || '[]');
-    audit.push({
-      timestamp: new Date().toISOString(),
-      action,
-      details,
-      userAgent: navigator.userAgent.substring(0, 50)
-    });
-    localStorage.setItem('deposito_audit', JSON.stringify(audit.slice(-500)));
-  } catch (e) {}
-}
+      // 2. Orientación según días sin registrar
+      if (diffDays === 0) {
+        return {
+          icon: '✨',
+          title: 'Ritmo al día',
+          message: '¡Excelente! Ya registraste tu evacuación de hoy. Mantén tus buenos hábitos de hidratación y movimiento corporal.'
+        };
+      } else if (diffDays === 1) {
+        return {
+          icon: '🌿',
+          title: 'Ritmo habitual',
+          message: 'Tu último registro fue ayer. Tu digestión evoluciona con regularidad. Continúa bebiendo agua y escuchando a tu cuerpo.'
+        };
+      } else if (diffDays >= 2 && diffDays <= 3) {
+        return {
+          icon: '💧',
+          title: 'Un par de días sin registrar',
+          message: `Han pasado ${diffDays} días desde tu última evacuación. Procura tomar un vaso extra de agua, dar un paseo ligero y consumir verduras u hortalizas frescas.`
+        };
+      } else if (diffDays >= 4) {
+        return {
+          icon: '🧘‍♀️',
+          title: 'Varios días en pausa',
+          message: `Llevas ${diffDays} días sin registrar evacuaciones. Te aconsejamos beber bastante agua (1.5-2L), evitar el sedentarismo y realizar masajes abdominales suaves. Si sientes distensión fuerte o dolor, consulta con un médico.`
+        };
+      }
 
-// ==========================================
-// BACKUP AUTOMÁTICO
-// ==========================================
-function createBackup() {
-  const data = DataLayer.get();
-  data._backupDate = new Date().toISOString();
-  data._version = '2.0';
-  localStorage.setItem('deposito_backup', JSON.stringify(data));
-}
-
-setInterval(createBackup, CONFIG.BACKUP_INTERVAL);
-window.addEventListener('beforeunload', createBackup);
-
-// ==========================================
-// ESTADO GLOBAL
-// ==========================================
-let tipoMov = 'entrada';
-let filtroMov = 'todos';
-let filtrocat = 'todas';
-let editId = null;
-let currentPage = 0;
-
-// ==========================================
-// NAVEGACIÓN
-// ==========================================
-function showSection(name, el) {
-  ['stock','movimientos','reportes','nuevo-producto'].forEach(s => {
-    const section = document.getElementById('sec-'+s);
-    if (s === name) {
-      section.classList.remove('hidden');
-      section.style.animation = 'fadeIn 0.4s ease';
-    } else {
-      section.classList.add('hidden');
+      return {
+        icon: '🌸',
+        title: 'Cuidando tu bienestar',
+        message: 'Registrar diariamente tus hábitos ayuda a identificar patrones y mejorar tu digestión de forma natural.'
+      };
     }
-  });
+  };
 
-  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-  if (el) el.classList.add('active');
+  // ==========================================================================
+  // 3. CONTROLADOR DE LA INTERFAZ Y EVENTOS (UIController)
+  // ==========================================================================
+  const UIController = {
+    currentCalendarMonth: new Date().getMonth(),
+    currentCalendarYear: new Date().getFullYear(),
+    selectedCalendarDateStr: null,
 
-  const fab = document.getElementById('fab-btn');
-  fab.style.display = (name === 'nuevo-producto' || name === 'reportes') ? 'none' : 'flex';
-  setTimeout(() => fab.classList.remove('hidden-fab'), 10);
+    init() {
+      this.updateGreeting();
+      this.setupNavigation();
+      this.setupModalEvents();
+      this.setupFormChips();
+      this.setupCalendarEvents();
+      this.renderAll();
+    },
 
-  if (name !== 'nuevo-producto') resetForm();
-  if (name === 'stock') { currentPage = 0; renderStock(); }
-  if (name === 'movimientos') renderMovimientos();
-  if (name === 'reportes') initFechas();
-}
+    updateGreeting() {
+      const hour = new Date().getHours();
+      const greetingEl = document.getElementById('greeting-text');
+      if (hour >= 6 && hour < 12) {
+        greetingEl.textContent = 'Buenos días 🌸';
+      } else if (hour >= 12 && hour < 20) {
+        greetingEl.textContent = 'Buenas tardes 🌿';
+      } else {
+        greetingEl.textContent = 'Buenas noches 🌙';
+      }
+    },
 
-function resetForm() {
-  editId = null;
-  document.getElementById('np-codigo').value = '';
-  document.getElementById('np-nombre').value = '';
-  document.getElementById('np-qty').value = '0';
-  document.getElementById('np-qty').disabled = false;
-  document.getElementById('np-notas').value = '';
-  document.getElementById('np-cat').selectedIndex = 0;
-  document.querySelector('#sec-nuevo-producto .btn-primary').textContent = '✓ Guardar Producto';
-  document.querySelector('#sec-nuevo-producto .section-title').innerHTML = '<div class="dot"></div>Nuevo Producto';
-}
+    setupNavigation() {
+      const navItems = document.querySelectorAll('.bottom-nav .nav-item');
+      const tabPanes = document.querySelectorAll('.tab-pane');
 
-// ==========================================
-// TOASTS MEJORADOS
-// ==========================================
-function showToast(msg, type = 'default') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast show ' + type;
+      navItems.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const targetTab = btn.getAttribute('data-tab');
 
-  const icons = { error: '❌', success: '✓', info: 'ℹ️', default: '' };
-  t.innerHTML = `${icons[type] || ''} ${msg}`;
+          navItems.forEach(item => item.classList.remove('active'));
+          tabPanes.forEach(pane => pane.classList.remove('active'));
 
-  setTimeout(() => t.classList.remove('show'), 3000);
-}
+          btn.classList.add('active');
+          document.getElementById(targetTab).classList.add('active');
 
-// ==========================================
-// RENDERIZADO DE STOCK
-// ==========================================
-function renderStock() {
-  const data = DataLayer.get();
-  const search = normalizeText(document.getElementById('search-stock').value || '');
-  const list = document.getElementById('stock-list');
-
-  // Actualizar stats
-  const stats = DataLayer.getStats();
-  document.getElementById('stat-productos').textContent = stats.totalProductos;
-  document.getElementById('stat-unidades').textContent = stats.totalUnidades;
-  document.getElementById('stat-critico').textContent = stats.critico;
-  document.getElementById('stat-bajo').textContent = stats.bajo;
-
-  // Filtros de categoría
-  const cats = ['todas', ...new Set(data.productos.map(p => p.categoria))];
-  document.getElementById('cat-filters').innerHTML = cats.map((c, i) => `
-    <button class="filter-chip ${c === filtrocat ? 'active' : ''}"
-      onclick="filtrocat='${c}';renderStock()" style="animation: fadeIn 0.3s ${i*0.05}s both">
-      ${c === 'todas' ? 'Todas' : c}</button>`).join('');
-
-  // Filtrar productos
-  let prods = data.productos.filter(p => {
-    const codeNorm = normalizeText(p.codigo || '');
-    const nameNorm = normalizeText(p.nombre);
-    const notesNorm = normalizeText(p.notas || '');
-    return (codeNorm.includes(search) || nameNorm.includes(search) || notesNorm.includes(search)) &&
-           (filtrocat === 'todas' || p.categoria === filtrocat);
-  });
-
-  // Mostrar info de búsqueda
-  const searchInfo = document.getElementById('search-info');
-  if (search || filtrocat !== 'todas') {
-    searchInfo.style.display = 'block';
-    searchInfo.innerHTML = `Encontrados: <span>${prods.length}</span> productos`;
-  } else {
-    searchInfo.style.display = 'none';
-  }
-
-  if (!prods.length) {
-    list.innerHTML = `<div class="empty">
-      <div class="empty-icon">📭</div>
-      Sin productos${search ? ' para esta búsqueda' : ''}.<br>
-      ${!search ? 'Usá "+ Producto" para agregar.' : ''}
-    </div>`;
-    return;
-  }
-
-  // Paginación virtual para rendimiento
-  const start = currentPage * CONFIG.ITEMS_PER_PAGE;
-  const end = start + CONFIG.ITEMS_PER_PAGE;
-  const visible = prods.slice(start, end);
-
-  if (filtrocat === 'todas' && !search) {
-    // Agrupar por categoría
-    const grouped = {};
-    visible.forEach(p => {
-      if (!grouped[p.categoria]) grouped[p.categoria] = [];
-      grouped[p.categoria].push(p);
-    });
-
-    list.innerHTML = Object.keys(grouped).map(cat => `
-      <div class="cat-group-title">${ICONS[cat] || ''} ${cat}</div>
-      ${grouped[cat].map((p, i) => renderStockItem(p, i)).join('')}
-    `).join('');
-  } else {
-    list.innerHTML = visible.map((p, i) => renderStockItem(p, i)).join('');
-  }
-
-  // Indicador de más páginas
-  if (prods.length > end) {
-    list.innerHTML += `<div style="text-align:center;padding:20px;">
-      <button class="btn btn-ghost btn-sm" onclick="currentPage++;renderStock()">Ver más (${prods.length - end} restantes)</button>
-    </div>`;
-  }
-}
-
-function renderStockItem(p, i) {
-  const status = getStockStatus(p.stock);
-  return `
-    <div class="stock-item" style="animation-delay: ${i*0.03}s" onclick="toggleExpand(this)">
-      <div class="stock-icon">${ICONS[p.categoria] || '📦'}</div>
-      <div class="stock-info">
-        ${p.codigo ? `<div class="stock-code">${p.codigo}</div>` : ''}
-        <div class="stock-name">${p.nombre}</div>
-        <div class="stock-cat">${p.categoria}</div>
-        <div class="stock-notes">${p.notas || ''}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px" onclick="event.stopPropagation()">
-        <div class="stock-qty" title="${status.label}">
-          <div class="qty-num ${status.class}">${p.stock}</div>
-          <div class="qty-label">uds</div>
-        </div>
-        <button class="delete-btn edit" onclick="prepararEdicion('${p.id}')" title="Editar">✏️</button>
-        <button class="delete-btn" onclick="eliminarProducto('${p.id}')" title="Eliminar">🗑</button>
-      </div>
-    </div>`;
-}
-
-// ==========================================
-// RENDERIZADO DE MOVIMIENTOS
-// ==========================================
-function renderMovimientos() {
-  const data = DataLayer.get();
-  const list = document.getElementById('mov-list');
-  let movs = [...data.movimientos];
-
-  if (filtroMov !== 'todos') {
-    if (filtroMov === 'entrada' || filtroMov === 'salida') {
-      movs = movs.filter(m => m.tipo === filtroMov);
-    } else {
-      movs = movs.filter(m => m.sucursal === filtroMov);
-    }
-  }
-
-  movs.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-
-  if (!movs.length) {
-    list.innerHTML = `<div class="empty">
-      <div class="empty-icon">🕒</div>
-      Sin movimientos registrados.
-    </div>`;
-    return;
-  }
-
-  list.innerHTML = movs.slice(0, 100).map((m, i) => `
-    <div class="move-item" style="animation-delay: ${i*0.02}s">
-      <div class="move-header">
-        <div class="move-product">${m.productoNombre}</div>
-        <div class="badge badge-${m.tipo}">${m.tipo === 'entrada' ? '↓ Entrada' : '↑ Salida'}</div>
-      </div>
-      <div class="move-detail">
-        <span>📅 ${formatDate(m.fecha)}</span>
-        <span>🔢 Cant: ${m.cantidad}</span>
-        ${m.tipo === 'salida' ? `<span>📍 ${m.sucursal}</span>` : ''}
-        ${m.nota ? `<span>📝 ${m.nota}</span>` : ''}
-      </div>
-    </div>
-  `).join('');
-
-  if (movs.length > 100) {
-    list.innerHTML += `<div style="text-align:center;padding:20px;color:var(--muted);font-family:Space Mono;font-size:12px;">
-      Mostrando últimos 100 de ${movs.length} movimientos
-    </div>`;
-  }
-}
-
-function filterMov(f, el) {
-  filtroMov = f;
-  document.querySelectorAll('#mov-filters .filter-chip').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  renderMovimientos();
-}
-
-// ==========================================
-// FORMULARIOS
-// ==========================================
-function initFechas() {
-  const hoy = new Date().toISOString().split('T')[0];
-  document.getElementById('rango-hasta').value = hoy;
-  const mesPasado = new Date();
-  mesPasado.setMonth(mesPasado.getMonth() - 1);
-  document.getElementById('rango-desde').value = mesPasado.toISOString().split('T')[0];
-
-  const data = DataLayer.get();
-  const cats = [...new Set(data.productos.map(p => p.categoria))].sort();
-  const select = document.getElementById('reporte-stock-cat');
-  const currentVal = select.value;
-  select.innerHTML = '<option value="Todas">Todas las categorías</option>' +
-    cats.map(c => `<option value="${c}">${c}</option>`).join('');
-  if ([...select.options].some(o => o.value === currentVal)) {
-    select.value = currentVal;
-  }
-}
-
-// ==========================================
-// CRUD PRODUCTOS
-// ==========================================
-function agregarProducto() {
-  const codigo = sanitizeInput(document.getElementById('np-codigo').value);
-  const nombre = sanitizeInput(document.getElementById('np-nombre').value);
-  const categoria = document.getElementById('np-cat').value;
-  const stock = parseInt(document.getElementById('np-qty').value) || 0;
-  const notas = sanitizeInput(document.getElementById('np-notas').value);
-
-  const error = validateProducto(nombre, stock);
-  if (error) { showToast(error, 'error'); return; }
-
-  const data = DataLayer.get();
-
-  if (editId) {
-    const p = data.productos.find(prod => prod.id === editId);
-    if (p) {
-      const oldName = p.nombre;
-      p.codigo = codigo;
-      p.nombre = nombre;
-      p.categoria = categoria;
-      p.notas = notas;
-      logAudit('edit_producto', { id: editId, oldName, newName: nombre });
-    }
-    showToast('✓ Producto actualizado', 'success');
-  } else {
-    if (data.productos.length >= CONFIG.MAX_PRODUCTOS) {
-      showToast('Límite de productos alcanzado', 'error');
-      return;
-    }
-
-    const nuevo = {
-      id: generateId(),
-      codigo, nombre, categoria, stock, notas,
-      fechaCreado: new Date().toISOString()
-    };
-    data.productos.push(nuevo);
-
-    if (stock > 0) {
-      data.movimientos.push({
-        id: generateId(),
-        productoId: nuevo.id,
-        productoNombre: nuevo.nombre,
-        tipo: 'entrada',
-        cantidad: stock,
-        fecha: new Date().toISOString(),
-        nota: 'Carga inicial'
+          if (targetTab === 'tab-calendario') {
+            this.renderCalendar();
+          } else if (targetTab === 'tab-estadisticas') {
+            this.renderStats();
+          }
+        });
       });
-    }
 
-    logAudit('create_producto', { id: nuevo.id, nombre });
-    showToast('✓ Producto guardado', 'success');
-  }
+      document.getElementById('btn-view-all-history')?.addEventListener('click', () => {
+        document.querySelector('[data-tab="tab-calendario"]').click();
+      });
+    },
 
-  DataLayer.save(data);
-  showSection('stock', document.querySelector('nav button:first-child'));
-}
+    setupModalEvents() {
+      const modal = document.getElementById('record-modal');
+      const btnMain = document.getElementById('btn-open-modal-main');
+      const btnEmpty = document.getElementById('btn-open-modal-empty');
+      const btnClose = document.getElementById('modal-close-btn');
+      const btnCancel = document.getElementById('btn-cancel-modal');
+      const btnDelete = document.getElementById('btn-delete-record');
+      const form = document.getElementById('record-form');
 
-function eliminarProducto(id) {
-  const data = DataLayer.get();
-  const p = data.productos.find(prod => prod.id === id);
-  if (!p) return;
+      const openModal = (recordToEdit = null, defaultDateStr = null) => {
+        form.reset();
+        document.getElementById('form-record-id').value = '';
 
-  if (!confirm(`¿Eliminar "${p.nombre}"? Esta acción no se puede deshacer.`)) return;
+        if (recordToEdit) {
+          document.getElementById('modal-title').textContent = 'Editar Evacuación';
+          document.getElementById('form-record-id').value = recordToEdit.id;
+          document.getElementById('form-date').value = recordToEdit.date;
+          document.getElementById('form-time').value = recordToEdit.time;
+          document.getElementById('form-notes').value = recordToEdit.notes || '';
 
-  data.productos = data.productos.filter(prod => prod.id !== id);
-  DataLayer.save(data);
-  logAudit('delete_producto', { id, nombre: p.nombre });
-  renderStock();
-  showToast('🗑 Producto eliminado', 'info');
-}
+          this.setChipValue('group-difficulty', 'form-difficulty', recordToEdit.difficulty);
+          this.setChipValue('group-pain', 'form-pain', recordToEdit.pain);
+          this.setChipValue('group-consistency', 'form-consistency', recordToEdit.consistency);
 
-function prepararEdicion(id) {
-  const p = DataLayer.getProductById(id);
-  if (!p) return;
+          btnDelete.style.display = 'block';
+        } else {
+          document.getElementById('modal-title').textContent = 'Registrar Evacuación';
+          const now = new Date();
+          const todayStr = defaultDateStr || now.toISOString().split('T')[0];
+          const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  editId = id;
-  document.getElementById('np-codigo').value = p.codigo || '';
-  document.getElementById('np-nombre').value = p.nombre;
-  document.getElementById('np-cat').value = p.categoria;
-  document.getElementById('np-qty').value = p.stock;
-  document.getElementById('np-qty').disabled = true;
-  document.getElementById('np-notas').value = p.notas || '';
+          document.getElementById('form-date').value = todayStr;
+          document.getElementById('form-time').value = timeStr;
 
-  const btn = document.querySelector('#sec-nuevo-producto .btn-primary');
-  btn.textContent = '✓ Guardar Cambios';
-  document.querySelector('#sec-nuevo-producto .section-title').innerHTML = '<div class="dot"></div>Editar Producto';
+          this.setChipValue('group-difficulty', 'form-difficulty', 'normal');
+          this.setChipValue('group-pain', 'form-pain', 'no');
+          this.setChipValue('group-consistency', 'form-consistency', 'normal');
 
-  showSection('nuevo-producto');
-}
+          btnDelete.style.display = 'none';
+        }
 
-// ==========================================
-// MODAL MOVIMIENTOS
-// ==========================================
-function openModal() {
-  const data = DataLayer.get();
-  const select = document.getElementById('mov-producto');
-  if (!data.productos.length) { showToast('No hay productos registrados', 'error'); return; }
+        modal.style.display = 'flex';
+      };
 
-  // Solo mostrar productos con stock para salidas
-  const opciones = data.productos.map(p =>
-    `<option value="${p.id}">${p.nombre} (${p.stock} uds)</option>`
-  ).join('');
+      const closeModal = () => {
+        modal.style.display = 'none';
+      };
 
-  select.innerHTML = opciones;
-  updateMovDesc();
-  document.getElementById('modal-mov').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
+      btnMain?.addEventListener('click', () => openModal());
+      btnEmpty?.addEventListener('click', () => openModal());
+      btnClose?.addEventListener('click', closeModal);
+      btnCancel?.addEventListener('click', closeModal);
 
-function updateMovDesc() {
-  const prodId = document.getElementById('mov-producto').value;
-  const prod = DataLayer.getProductById(prodId);
-  const descEl = document.getElementById('mov-desc');
-  if (prod) {
-    descEl.textContent = prod.notas || 'Sin descripción';
-  } else {
-    descEl.textContent = '';
-  }
-}
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+      });
 
-function closeModal() {
-  document.getElementById('modal-mov').classList.remove('open');
-  document.body.style.overflow = '';
-}
+      // Eliminar Registro
+      btnDelete.addEventListener('click', () => {
+        const id = document.getElementById('form-record-id').value;
+        if (id && confirm('¿Deseas eliminar este registro?')) {
+          StorageModule.deleteRecord(id);
+          closeModal();
+          this.renderAll();
+        }
+      });
 
-function setTipoMov(t) {
-  tipoMov = t;
-  document.getElementById('tab-entrada').classList.toggle('active-entrada', t === 'entrada');
-  document.getElementById('tab-salida').classList.toggle('active-salida', t === 'salida');
-  document.getElementById('grupo-sucursal').style.display = t === 'salida' ? 'block' : 'none';
+      // Guardar Formulario
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
 
-  const btn = document.getElementById('btn-confirmar-mov');
-  btn.className = t === 'entrada' ? 'btn btn-entrada' : 'btn btn-salida';
-  btn.textContent = t === 'entrada' ? '✓ Confirmar Entrada' : '✓ Confirmar Salida';
-}
+        const id = document.getElementById('form-record-id').value;
+        const date = document.getElementById('form-date').value;
+        const time = document.getElementById('form-time').value;
+        const difficulty = document.getElementById('form-difficulty').value;
+        const pain = document.getElementById('form-pain').value;
+        const consistency = document.getElementById('form-consistency').value;
+        const notes = document.getElementById('form-notes').value.trim();
 
-function confirmarMovimiento() {
-  const prodId = document.getElementById('mov-producto').value;
-  const cantidad = parseInt(document.getElementById('mov-qty').value);
-  const sucursal = document.getElementById('mov-sucursal').value;
-  const nota = sanitizeInput(document.getElementById('mov-nota').value);
+        // Crear objeto Timestamp preciso
+        const timestamp = new Date(`${date}T${time}`).getTime();
 
-  if (isNaN(cantidad) || cantidad <= 0) { showToast('Cantidad inválida', 'error'); return; }
-  if (cantidad > 99999) { showToast('Cantidad demasiado alta', 'error'); return; }
+        const recordData = {
+          id: id || 'rec_' + Date.now(),
+          date,
+          time,
+          timestamp,
+          difficulty,
+          pain,
+          consistency,
+          notes
+        };
 
-  const data = DataLayer.get();
-  const prod = data.productos.find(p => p.id === prodId);
-  if (!prod) { showToast('Producto no encontrado', 'error'); return; }
+        if (id) {
+          StorageModule.updateRecord(recordData);
+        } else {
+          StorageModule.addRecord(recordData);
+        }
 
-  if (tipoMov === 'salida') {
-    if (prod.stock < cantidad) {
-      showToast(`Stock insuficiente. Disponible: ${prod.stock}`, 'error');
-      return;
-    }
-    // Confirmación para salidas grandes
-    if (cantidad > prod.stock * 0.5 && prod.stock > 5) {
-      if (!confirm(`⚠️ Estás sacando ${cantidad} de ${prod.stock} unidades de "${prod.nombre}". ¿Confirmar?`)) {
+        closeModal();
+        this.renderAll();
+      });
+
+      this.openModalFunc = openModal;
+    },
+
+    setupFormChips() {
+      const configureChipGroup = (groupId, hiddenInputId) => {
+        const container = document.getElementById(groupId);
+        const hiddenInput = document.getElementById(hiddenInputId);
+        const chips = container.querySelectorAll('.chip');
+
+        chips.forEach(chip => {
+          chip.addEventListener('click', () => {
+            chips.forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            hiddenInput.value = chip.getAttribute('data-value');
+          });
+        });
+      };
+
+      configureChipGroup('group-difficulty', 'form-difficulty');
+      configureChipGroup('group-pain', 'form-pain');
+      configureChipGroup('group-consistency', 'form-consistency');
+    },
+
+    setChipValue(groupId, hiddenInputId, value) {
+      const container = document.getElementById(groupId);
+      const hiddenInput = document.getElementById(hiddenInputId);
+      hiddenInput.value = value;
+
+      const chips = container.querySelectorAll('.chip');
+      chips.forEach(chip => {
+        if (chip.getAttribute('data-value') === value) {
+          chip.classList.add('active');
+        } else {
+          chip.classList.remove('active');
+        }
+      });
+    },
+
+    setupCalendarEvents() {
+      document.getElementById('cal-prev-month').addEventListener('click', () => {
+        this.currentCalendarMonth--;
+        if (this.currentCalendarMonth < 0) {
+          this.currentCalendarMonth = 11;
+          this.currentCalendarYear--;
+        }
+        this.renderCalendar();
+      });
+
+      document.getElementById('cal-next-month').addEventListener('click', () => {
+        this.currentCalendarMonth++;
+        if (this.currentCalendarMonth > 11) {
+          this.currentCalendarMonth = 0;
+          this.currentCalendarYear++;
+        }
+        this.renderCalendar();
+      });
+
+      document.getElementById('btn-add-for-selected-day')?.addEventListener('click', () => {
+        if (this.selectedCalendarDateStr) {
+          this.openModalFunc(null, this.selectedCalendarDateStr);
+        }
+      });
+    },
+
+    renderAll() {
+      const records = StorageModule.getAll();
+      this.renderStatusCard(records);
+      this.renderRecommendation(records);
+      this.renderWeekSummary(records);
+      this.renderRecentRecords(records);
+      this.renderCalendar();
+      this.renderStats();
+    },
+
+    renderStatusCard(records) {
+      const counterNumber = document.getElementById('counter-number');
+      const counterLabel = document.getElementById('counter-label');
+      const statusBadge = document.getElementById('status-badge');
+      const statusLastDate = document.getElementById('status-last-date');
+
+      if (!records || records.length === 0) {
+        counterNumber.textContent = '--';
+        counterLabel.textContent = 'sin evacuaciones registradas';
+        statusBadge.textContent = 'Sin datos';
+        statusBadge.className = 'status-badge';
+        statusLastDate.textContent = 'Registra para comenzar';
         return;
       }
-    }
-  }
 
-  prod.stock += (tipoMov === 'entrada' ? cantidad : -cantidad);
+      const latest = records[0];
+      const now = new Date();
+      const lastDate = new Date(latest.timestamp);
 
-  data.movimientos.push({
-    id: generateId(),
-    productoId: prodId,
-    productoNombre: prod.nombre,
-    tipo: tipoMov,
-    cantidad: cantidad,
-    sucursal: tipoMov === 'salida' ? sucursal : null,
-    nota: nota,
-    fecha: new Date().toISOString()
-  });
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const lastDateStart = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate());
+      const diffTime = todayStart.getTime() - lastDateStart.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
 
-  DataLayer.save(data);
-  logAudit(tipoMov, { productoId: prodId, cantidad, sucursal });
+      counterNumber.textContent = diffDays;
+      counterLabel.textContent = diffDays === 1 ? 'día desde tu última evacuación' : 'días desde tu última evacuación';
 
-  closeModal();
-  renderStock();
-  renderMovimientos();
-  showToast(`✓ ${tipoMov === 'entrada' ? 'Entrada' : 'Salida'} registrada`, 'success');
+      // Formato fecha amigable
+      const options = { weekday: 'short', day: 'numeric', month: 'short' };
+      statusLastDate.textContent = `Último: ${lastDate.toLocaleDateString('es-ES', options)} (${latest.time})`;
 
-  document.getElementById('mov-qty').value = '1';
-  document.getElementById('mov-nota').value = '';
-}
-
-// ==========================================
-// EXPORTACIONES
-// ==========================================
-function exportarStockActual() {
-  const data = DataLayer.get();
-  const cat = document.getElementById('reporte-stock-cat').value;
-
-  let filteredProds = data.productos.filter(p => p.stock > 0);
-  let filename = "Stock_Actual.xlsx";
-
-  if (cat !== 'Todas') {
-    filteredProds = filteredProds.filter(p => p.categoria === cat);
-    filename = `Stock_${cat}.xlsx`;
-  }
-
-  // Ordenar: Categoría -> Cuerpos (para Sillones) -> Nombre
-  filteredProds.sort((a, b) => {
-    if (a.categoria !== b.categoria) {
-      return a.categoria.localeCompare(b.categoria);
-    }
-    if (a.categoria === 'Sillones') {
-      const ca = getCuerpos(a);
-      const cb = getCuerpos(b);
-      if (ca !== cb) return ca - cb;
-    }
-    return a.nombre.localeCompare(b.nombre);
-  });
-
-  const rows = filteredProds.map(p => ({
-    Código: p.codigo || '',
-    Producto: p.nombre,
-    Cantidad: p.stock === 1 ? `${p.stock} unidad` : `${p.stock} unidades`,
-    Notas: p.notas || ''
-  }));
-
-  // Totales por cuerpos para Sillones
-  if (cat === 'Todas' || cat === 'Sillones') {
-    const sillones = filteredProds.filter(p => p.categoria === 'Sillones');
-    const totales = {};
-    sillones.forEach(p => {
-      const c = getCuerpos(p);
-      if (c > 0) {
-        totales[c] = (totales[c] || 0) + p.stock;
+      if (diffDays <= 1) {
+        statusBadge.textContent = 'Ritmo Regular';
+        statusBadge.className = 'status-badge';
+      } else if (diffDays <= 3) {
+        statusBadge.textContent = 'Ritmo Moderado';
+        statusBadge.className = 'status-badge warning';
+      } else {
+        statusBadge.textContent = 'Sin evacuación reciente';
+        statusBadge.className = 'status-badge warning';
       }
-    });
+    },
 
-    const totalRows = Object.keys(totales).sort((a, b) => a - b).map(c => ({
-      Producto: `TOTAL SILLONES ${c} CUERPOS`,
-      Cantidad: totales[c] === 1 ? `${totales[c]} unidad` : `${totales[c]} unidades`,
-      Notas: ''
-    }));
+    renderRecommendation(records) {
+      const rec = RecommendationEngine.generate(records);
+      document.getElementById('rec-icon').textContent = rec.icon;
+      document.getElementById('rec-title').textContent = rec.title;
+      document.getElementById('rec-message').textContent = rec.message;
+    },
 
-    if (totalRows.length > 0) {
-      rows.push({ Código: '', Producto: '', Cantidad: '', Notas: '' }); // Espacio
-      rows.push(...totalRows);
+    renderWeekSummary(records) {
+      const grid = document.getElementById('week-days-grid');
+      const summaryCountEl = document.getElementById('week-summary-count');
+      grid.innerHTML = '';
+
+      const today = new Date();
+      const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+      let weekRecordsCount = 0;
+      const last7Days = [];
+
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(today.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        const dayRecords = records.filter(r => r.date === dateStr);
+        weekRecordsCount += dayRecords.length;
+
+        last7Days.push({
+          dateStr,
+          dayName: dayNames[d.getDay()],
+          dayNumber: d.getDate(),
+          isToday: i === 0,
+          hasRecord: dayRecords.length > 0,
+          count: dayRecords.length
+        });
+      }
+
+      summaryCountEl.textContent = weekRecordsCount === 1 ? '1 registro' : `${weekRecordsCount} registros`;
+
+      last7Days.forEach(dayInfo => {
+        const col = document.createElement('div');
+        col.className = 'week-day-col';
+
+        const dotClass = `week-day-dot ${dayInfo.hasRecord ? 'has-record' : ''} ${dayInfo.isToday ? 'today' : ''}`;
+
+        col.innerHTML = `
+          <span class="week-day-name">${dayInfo.dayName}</span>
+          <div class="${dotClass}">${dayInfo.hasRecord ? '✓' : dayInfo.dayNumber}</div>
+        `;
+        grid.appendChild(col);
+      });
+    },
+
+    renderRecentRecords(records) {
+      const listEl = document.getElementById('recent-records-list');
+      if (!records || records.length === 0) {
+        listEl.innerHTML = `
+          <div class="empty-state">
+            <span class="empty-icon">📝</span>
+            <p>Aún no has agregado ninguna evacuación.</p>
+            <button class="btn btn-secondary btn-sm" id="btn-open-modal-empty">Agregar primer registro</button>
+          </div>
+        `;
+        document.getElementById('btn-open-modal-empty')?.addEventListener('click', () => this.openModalFunc());
+        return;
+      }
+
+      // Mostrar últimos 5 registros
+      const recent = records.slice(0, 5);
+      listEl.innerHTML = '';
+
+      recent.forEach(r => {
+        const item = this.createRecordItemDOM(r);
+        listEl.appendChild(item);
+      });
+    },
+
+    createRecordItemDOM(r) {
+      const item = document.createElement('div');
+      item.className = 'record-item';
+
+      const d = new Date(r.timestamp);
+      const dateFormatted = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+
+      let diffBadgeClass = 'normal';
+      if (r.difficulty === 'fácil') diffBadgeClass = 'easy';
+      if (r.difficulty === 'difícil') diffBadgeClass = 'hard';
+      if (r.difficulty === 'muy difícil') diffBadgeClass = 'very-hard';
+
+      item.innerHTML = `
+        <div class="record-main-info">
+          <span class="record-time-date">${dateFormatted} - ${r.time} hs</span>
+          <div class="record-details-inline">
+            <span>Heces: ${r.consistency}</span>
+            ${r.notes ? `<span>• 📝 Note</span>` : ''}
+          </div>
+        </div>
+        <div class="record-badges">
+          <span class="badge-tag ${diffBadgeClass}">${r.difficulty}</span>
+          ${r.pain === 'sí' ? `<span class="badge-tag pain">Molestia</span>` : ''}
+        </div>
+      `;
+
+      item.addEventListener('click', () => {
+        this.openModalFunc(r);
+      });
+
+      return item;
+    },
+
+    renderCalendar() {
+      const titleEl = document.getElementById('cal-month-title');
+      const gridEl = document.getElementById('calendar-days-grid');
+      gridEl.innerHTML = '';
+
+      const records = StorageModule.getAll();
+      const monthNames = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+      ];
+
+      titleEl.textContent = `${monthNames[this.currentCalendarMonth]} ${this.currentCalendarYear}`;
+
+      const firstDay = new Date(this.currentCalendarYear, this.currentCalendarMonth, 1);
+      const lastDay = new Date(this.currentCalendarYear, this.currentCalendarMonth + 1, 0);
+
+      // Ajuste de inicio de semana (Lunes = 0, Domingo = 6)
+      let startDayOfWeek = firstDay.getDay() - 1;
+      if (startDayOfWeek === -1) startDayOfWeek = 6;
+
+      const totalDays = lastDay.getDate();
+
+      // Celdas vacías previas
+      for (let i = 0; i < startDayOfWeek; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'cal-day empty';
+        gridEl.appendChild(emptyCell);
+      }
+
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // Días del mes
+      for (let day = 1; day <= totalDays; day++) {
+        const dateMonth = String(this.currentCalendarMonth + 1).padStart(2, '0');
+        const dateDay = String(day).padStart(2, '0');
+        const dateStr = `${this.currentCalendarYear}-${dateMonth}-${dateDay}`;
+
+        const dayRecords = records.filter(r => r.date === dateStr);
+        const hasRecord = dayRecords.length > 0;
+        const isToday = dateStr === todayStr;
+        const isSelected = dateStr === this.selectedCalendarDateStr;
+
+        const dayCell = document.createElement('div');
+        dayCell.className = `cal-day ${hasRecord ? 'has-record' : ''} ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`;
+
+        dayCell.innerHTML = `
+          <span>${day}</span>
+          ${hasRecord ? `<div class="cal-dot-indicator"></div>` : ''}
+        `;
+
+        dayCell.addEventListener('click', () => {
+          this.selectedCalendarDateStr = dateStr;
+          this.renderCalendar();
+          this.renderDayDetails(dateStr, dayRecords);
+        });
+
+        gridEl.appendChild(dayCell);
+      }
+    },
+
+    renderDayDetails(dateStr, dayRecords) {
+      const card = document.getElementById('day-details-card');
+      const title = document.getElementById('day-details-title');
+      const list = document.getElementById('day-records-list');
+
+      card.style.display = 'block';
+
+      const d = new Date(dateStr + 'T00:00:00');
+      const dateFormatted = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+      title.textContent = dateFormatted.charAt(0).toUpperCase() + dateFormatted.slice(1);
+
+      list.innerHTML = '';
+
+      if (dayRecords.length === 0) {
+        list.innerHTML = `<p class="empty-state">No hay evacuaciones registradas este día.</p>`;
+      } else {
+        dayRecords.forEach(r => {
+          const item = this.createRecordItemDOM(r);
+          list.appendChild(item);
+        });
+      }
+    },
+
+    renderStats() {
+      const records = StorageModule.getAll();
+
+      const totalEvacEl = document.getElementById('stat-total-evac');
+      const weeklyAvgEl = document.getElementById('stat-weekly-avg');
+      const maxGapEl = document.getElementById('stat-max-gap');
+      const discomfortDaysEl = document.getElementById('stat-discomfort-days');
+
+      totalEvacEl.textContent = records.length;
+
+      if (records.length === 0) {
+        weeklyAvgEl.textContent = '0.0';
+        maxGapEl.textContent = '0 días';
+        discomfortDaysEl.textContent = '0';
+        this.renderConsistencyBars([]);
+        this.renderEvolutionChart([]);
+        return;
+      }
+
+      // Promedio semanal
+      const timestamps = records.map(r => r.timestamp);
+      const minTime = Math.min(...timestamps);
+      const maxTime = Math.max(...timestamps, Date.now());
+      const diffDaysTotal = Math.max(1, Math.ceil((maxTime - minTime) / (1000 * 3600 * 24)));
+      const weeksActive = Math.max(1, diffDaysTotal / 7);
+      const weeklyAvg = (records.length / weeksActive).toFixed(1);
+      weeklyAvgEl.textContent = weeklyAvg;
+
+      // Mayor brecha sin evacuar
+      const sortedAsc = [...records].sort((a, b) => a.timestamp - b.timestamp);
+      let maxGap = 0;
+      for (let i = 1; i < sortedAsc.length; i++) {
+        const prev = new Date(sortedAsc[i-1].timestamp);
+        const curr = new Date(sortedAsc[i].timestamp);
+        const gapDays = Math.floor((curr - prev) / (1000 * 3600 * 24));
+        if (gapDays > maxGap) maxGap = gapDays;
+      }
+      maxGapEl.textContent = `${maxGap} días`;
+
+      // Días con molestias (Dolor = sí O Dificultad = difícil / muy difícil)
+      const discomfortRecords = records.filter(r => r.pain === 'sí' || r.difficulty === 'difícil' || r.difficulty === 'muy difícil');
+      const uniqueDiscomfortDates = new Set(discomfortRecords.map(r => r.date));
+      discomfortDaysEl.textContent = uniqueDiscomfortDates.size;
+
+      this.renderConsistencyBars(records);
+      this.renderEvolutionChart(records);
+    },
+
+    renderConsistencyBars(records) {
+      const container = document.getElementById('consistency-bars');
+      container.innerHTML = '';
+
+      const categories = ['muy dura', 'dura', 'normal', 'blanda', 'líquida'];
+      const total = records.length || 1;
+
+      categories.forEach(cat => {
+        const count = records.filter(r => r.consistency === cat).length;
+        const percentage = records.length > 0 ? Math.round((count / total) * 100) : 0;
+
+        const item = document.createElement('div');
+        item.className = 'consistency-item';
+        item.innerHTML = `
+          <div class="consistency-label-row">
+            <span>${cat.charAt(0).toUpperCase() + cat.slice(1)}</span>
+            <span>${count} (${percentage}%)</span>
+          </div>
+          <div class="consistency-bar-bg">
+            <div class="consistency-bar-fill" style="width: ${percentage}%"></div>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    },
+
+    renderEvolutionChart(records) {
+      const container = document.getElementById('evolution-chart-container');
+      container.innerHTML = '';
+
+      const today = new Date();
+      const daysCount = 30;
+      let maxDayCount = 1;
+
+      const dailyData = [];
+
+      for (let i = daysCount - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(today.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        const count = records.filter(r => r.date === dateStr).length;
+        if (count > maxDayCount) maxDayCount = count;
+        dailyData.push({ dateStr, count });
+      }
+
+      dailyData.forEach(item => {
+        const col = document.createElement('div');
+        col.className = 'evo-bar-col';
+        col.title = `${item.dateStr}: ${item.count} evacuación/es`;
+
+        const heightPercent = item.count > 0 ? (item.count / maxDayCount) * 100 : 8;
+        const isBarEmpty = item.count === 0;
+
+        col.innerHTML = `
+          <div class="evo-bar ${isBarEmpty ? 'empty' : ''}" style="height: ${heightPercent}%"></div>
+        `;
+        container.appendChild(col);
+      });
     }
-  }
-
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Stock");
-  XLSX.writeFile(wb, filename);
-  showToast('📊 Stock exportado', 'success');
-}
-
-function exportarMovimientos() {
-  const data = DataLayer.get();
-  const desde = new Date(document.getElementById('rango-desde').value);
-  const hasta = new Date(document.getElementById('rango-hasta').value);
-  hasta.setHours(23,59,59);
-
-  if (isNaN(desde) || isNaN(hasta)) {
-    showToast('Fechas inválidas', 'error');
-    return;
-  }
-
-  const filtrados = data.movimientos.filter(m => {
-    const d = new Date(m.fecha);
-    return d >= desde && d <= hasta;
-  });
-
-  const rows = filtrados.map(m => ({
-    Fecha: formatDate(m.fecha),
-    Tipo: m.tipo.toUpperCase(),
-    Producto: m.productoNombre,
-    Cantidad: m.cantidad,
-    Destino: m.sucursal || '-',
-    Nota: m.nota || ''
-  }));
-
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Movimientos");
-  XLSX.writeFile(wb, `Movimientos_${document.getElementById('rango-desde').value}_al_${document.getElementById('rango-hasta').value}.xlsx`);
-  showToast('📊 Movimientos exportados', 'success');
-}
-
-function exportarCompleto() {
-  const data = DataLayer.get();
-  const wb = XLSX.utils.book_new();
-
-  const sortedProds = data.productos.filter(p => p.stock > 0);
-  sortedProds.sort((a, b) => {
-    if (a.categoria !== b.categoria) {
-      return a.categoria.localeCompare(b.categoria);
-    }
-    if (a.categoria === 'Sillones') {
-      const ca = getCuerpos(a);
-      const cb = getCuerpos(b);
-      if (ca !== cb) return ca - cb;
-    }
-    return a.nombre.localeCompare(b.nombre);
-  });
-
-  const sRows = sortedProds.map(p => ({
-    Código: p.codigo || '',
-    Producto: p.nombre,
-    Cantidad: p.stock === 1 ? `${p.stock} unidad` : `${p.stock} unidades`,
-    Notas: p.notas || ''
-  }));
-
-  // Totales por cuerpos para Sillones en reporte completo
-  const sillones = sortedProds.filter(p => p.categoria === 'Sillones');
-  const totales = {};
-  sillones.forEach(p => {
-    const c = getCuerpos(p);
-    if (c > 0) {
-      totales[c] = (totales[c] || 0) + p.stock;
-    }
-  });
-
-  const totalRows = Object.keys(totales).sort((a, b) => a - b).map(c => ({
-    Producto: `TOTAL SILLONES ${c} CUERPOS`,
-    Cantidad: totales[c] === 1 ? `${totales[c]} unidad` : `${totales[c]} unidades`,
-    Notas: ''
-  }));
-
-  if (totalRows.length > 0) {
-    sRows.push({ Código: '', Producto: '', Cantidad: '', Notas: '' }); // Espacio
-    sRows.push(...totalRows);
-  }
-
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sRows), "Stock Actual");
-
-  const mRows = data.movimientos.map(m => ({
-    Fecha: formatDate(m.fecha), Tipo: m.tipo, Producto: m.productoNombre,
-    Cantidad: m.cantidad, Destino: m.sucursal || '-'
-  }));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(mRows), "Todos los Movimientos");
-
-  // Resumen por sucursal
-  const sucursales = ['Aristóbulo', 'Oberá', 'San Vicente'];
-  const resumen = sucursales.map(s => {
-    const total = data.movimientos
-      .filter(m => m.sucursal === s && m.tipo === 'salida')
-      .reduce((a, m) => a + m.cantidad, 0);
-    return { Sucursal: s, 'Total Enviado': total };
-  });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), "Resumen Sucursales");
-
-  XLSX.writeFile(wb, "Reporte_Completo_Deposito.xlsx");
-  showToast('📊 Reporte completo exportado', 'success');
-}
-
-function exportarSucursales() {
-  const data = DataLayer.get();
-  const wb = XLSX.utils.book_new();
-  const sucursales = ['Aristóbulo', 'Oberá', 'San Vicente'];
-
-  sucursales.forEach(s => {
-    const filtrados = data.movimientos.filter(m => m.sucursal === s);
-    const rows = filtrados.map(m => ({
-      Fecha: formatDate(m.fecha),
-      Producto: m.productoNombre,
-      Cantidad: m.cantidad,
-      Nota: m.nota || ''
-    }));
-    if (rows.length > 0) {
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), s);
-    }
-  });
-
-  if (wb.SheetNames.length === 0) {
-    showToast('No hay envíos a sucursales todavía', 'info');
-    return;
-  }
-  XLSX.writeFile(wb, "Envios_a_Sucursales.xlsx");
-  showToast('📊 Sucursales exportadas', 'success');
-}
-
-// ==========================================
-// BACKUP Y RESTAURACIÓN
-// ==========================================
-function exportarBackup() {
-  const data = DataLayer.get();
-  const backup = {
-    version: '2.0',
-    fecha: new Date().toISOString(),
-    datos: data
   };
 
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `deposito_backup_${new Date().toISOString().split('T')[0]}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('💾 Respaldo descargado', 'success');
-}
-
-function importarBackup() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.json';
-  input.onchange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const backup = JSON.parse(event.target.result);
-        if (!backup.datos || !Array.isArray(backup.datos.productos)) {
-          throw new Error('Formato inválido');
-        }
-
-        if (confirm(`¿Restaurar respaldo del ${new Date(backup.fecha).toLocaleDateString()}? Esto reemplazará todos los datos actuales.`)) {
-          DataLayer.save(backup.datos);
-          renderStock();
-          showToast('✓ Datos restaurados', 'success');
-          logAudit('restore_backup', { fecha: backup.fecha });
-        }
-      } catch (err) {
-        showToast('❌ Archivo inválido', 'error');
-      }
-    };
-    reader.readAsText(file);
-  };
-  input.click();
-}
-
-// ==========================================
-// INICIALIZACIÓN
-// ==========================================
-document.getElementById('fecha-header').textContent = new Date().toLocaleDateString('es-ES', {
-  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  // Inicializar la App
+  UIController.init();
 });
-
-// Cerrar modal con Escape
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeModal();
-});
-
-// Prevenir zoom en inputs en iOS
-document.addEventListener('gesturestart', (e) => e.preventDefault());
-
-// Render inicial
-renderStock();
-
-// Log de inicio
-logAudit('app_start');
