@@ -1,238 +1,354 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0f0e0c">
-<title>Depósito Stock Pro</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mi Ritmo - Control y Bienestar Intestinal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-<header>
-  <h1>📦 Depósito <span style="font-size:14px;opacity:0.6">Pro</span></h1>
-  <p id="fecha-header"></p>
-</header>
-
-<nav>
-  <button class="active" onclick="showSection('stock', this)">Stock</button>
-  <button onclick="showSection('movimientos', this)">Movimientos</button>
-  <button onclick="showSection('reportes', this)">📊 Reportes</button>
-  <button onclick="showSection('nuevo-producto', this)">+ Producto</button>
-</nav>
-
-<!-- STOCK -->
-<main id="sec-stock">
-  <div class="stats-row">
-    <div class="stat-card">
-      <div class="stat-num" id="stat-productos">0</div>
-      <div class="stat-label">Productos</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-num" id="stat-unidades">0</div>
-      <div class="stat-label">Unidades</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-num" id="stat-critico">0</div>
-      <div class="stat-label" style="color:var(--red)">Crítico</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-num" id="stat-bajo">0</div>
-      <div class="stat-label" style="color:#f59e0b">Bajo</div>
-    </div>
-  </div>
-  <div class="search-box">
-    <span class="search-icon">🔍</span>
-    <input type="text" placeholder="Buscar producto..." id="search-stock" oninput="debouncedSearch()">
-  </div>
-  <div class="filter-row" id="cat-filters"></div>
-  <div id="search-info" style="margin-bottom: 10px; font-family: 'Space Mono', monospace; font-size: 12px; color: var(--muted); display: none;"></div>
-  <div class="card"><div id="stock-list"></div></div>
-</main>
-
-<!-- MOVIMIENTOS -->
-<main id="sec-movimientos" class="hidden">
-  <div class="section-title"><div class="dot"></div>Historial</div>
-  <div class="filter-row" id="mov-filters">
-    <button class="filter-chip active" onclick="filterMov('todos', this)">Todos</button>
-    <button class="filter-chip" onclick="filterMov('entrada', this)">Entradas</button>
-    <button class="filter-chip" onclick="filterMov('salida', this)">Salidas</button>
-    <button class="filter-chip" onclick="filterMov('Aristóbulo', this)">Aristóbulo</button>
-    <button class="filter-chip" onclick="filterMov('Oberá', this)">Oberá</button>
-    <button class="filter-chip" onclick="filterMov('San Vicente', this)">San Vicente</button>
-  </div>
-  <div class="card"><div id="mov-list"></div></div>
-</main>
-
-<!-- REPORTES -->
-<main id="sec-reportes" class="hidden">
-  <div class="section-title"><div class="dot"></div>Reportes Excel</div>
-
-  <div class="reporte-card">
-    <div class="reporte-header">
-      <div class="reporte-icon">🗃️</div>
-      <div class="reporte-info">
-        <h3>Stock Actual</h3>
-        <p>Todos los productos con cantidad y estado</p>
+  <div class="app-container">
+    <!-- Header principal -->
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-icon">🌱</span>
+        <h1 class="brand-title">Mi Ritmo</h1>
       </div>
-    </div>
-    <div class="form-group" style="width: 100%;">
-      <label>Filtrar por Categoría</label>
-      <select id="reporte-stock-cat">
-        <option value="Todas">Todas las categorías</option>
-      </select>
-    </div>
-    <button class="btn btn-excel btn-sm" onclick="exportarStockActual()">⬇ Descargar Stock.xlsx</button>
-  </div>
-
-  <div class="reporte-card">
-    <div class="reporte-header">
-      <div class="reporte-icon">📋</div>
-      <div class="reporte-info">
-        <h3>Historial de Movimientos</h3>
-        <p>Entradas y salidas con fecha y sucursal. Filtrá por rango de fechas.</p>
+      <div class="header-greeting" id="header-greeting">
+        <span id="greeting-text">Hola 🌸</span>
+        <span class="greeting-subtitle">Cuidando tu bienestar cada día</span>
       </div>
+    </header>
+
+    <!-- Indicador de Privacidad -->
+    <div class="privacy-badge">
+      <span class="lock-icon">🔒</span>
+      <span>Tus registros se guardan <strong>solamente en este dispositivo</strong>.</span>
     </div>
-    <div class="date-range">
-      <div class="form-group" style="margin:0">
-        <label>Desde</label>
-        <input type="date" id="rango-desde">
+
+    <!-- Contenido Principal Dinámico -->
+    <main class="main-content">
+      <!-- PESTAÑA INICIO -->
+      <section id="tab-inicio" class="tab-pane active">
+        <!-- Tarjeta de Estado Actual -->
+        <div class="card status-card">
+          <div class="status-header">
+            <span class="status-badge" id="status-badge">Sin datos</span>
+            <span class="status-date" id="status-last-date">Sin registros aún</span>
+          </div>
+          <div class="status-body">
+            <div class="days-counter">
+              <span class="counter-number" id="counter-number">--</span>
+              <span class="counter-label" id="counter-label">días desde tu último registro</span>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-lg btn-action" id="btn-open-modal-main">
+            <span class="btn-icon">✨</span> Fui al baño
+          </button>
+        </div>
+
+        <!-- Tarjeta de Recomendación Automática -->
+        <div class="card recommendation-card" id="recommendation-card">
+          <div class="recommendation-header">
+            <span class="rec-icon" id="rec-icon">🌿</span>
+            <h3 id="rec-title">Orientación personal</h3>
+          </div>
+          <p id="rec-message" class="rec-message">
+            Registra tu primera evacuación para comenzar a recibir recomendaciones adaptadas a tu ritmo.
+          </p>
+        </div>
+
+        <!-- Resumen de los últimos 7 días -->
+        <div class="card week-summary-card">
+          <div class="card-title-row">
+            <h3>Últimos 7 días</h3>
+            <span class="week-summary-count" id="week-summary-count">0 registros</span>
+          </div>
+          <div class="week-days-grid" id="week-days-grid">
+            <!-- Renderizado dinámico de 7 días -->
+          </div>
+        </div>
+
+        <!-- Historial Reciente -->
+        <div class="card history-card">
+          <div class="card-title-row">
+            <h3>Registros recientes</h3>
+            <button class="btn-link" id="btn-view-all-history">Ver todo</button>
+          </div>
+          <div class="records-list" id="recent-records-list">
+            <div class="empty-state">
+              <span class="empty-icon">📝</span>
+              <p>Aún no has agregado ninguna evacuación.</p>
+              <button class="btn btn-secondary btn-sm" id="btn-open-modal-empty">Agregar primer registro</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PESTAÑA CALENDARIO -->
+      <section id="tab-calendario" class="tab-pane">
+        <div class="card calendar-card">
+          <div class="calendar-header">
+            <button class="btn-icon-only" id="cal-prev-month" title="Mes anterior">‹</button>
+            <h2 id="cal-month-title">Mes Año</h2>
+            <button class="btn-icon-only" id="cal-next-month" title="Mes siguiente">›</button>
+          </div>
+          <div class="calendar-weekdays">
+            <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+          </div>
+          <div class="calendar-days-grid" id="calendar-days-grid">
+            <!-- Grid renderizada dinámicamente -->
+          </div>
+        </div>
+
+        <!-- Lista de registros del día seleccionado -->
+        <div class="card day-details-card" id="day-details-card" style="display: none;">
+          <div class="card-title-row">
+            <h3 id="day-details-title">Registros del día</h3>
+            <button class="btn btn-secondary btn-sm" id="btn-add-for-selected-day">+ Agregar</button>
+          </div>
+          <div class="records-list" id="day-records-list">
+            <!-- Lista de registros del día -->
+          </div>
+        </div>
+      </section>
+
+      <!-- PESTAÑA ESTADÍSTICAS -->
+      <section id="tab-estadisticas" class="tab-pane">
+        <div class="stats-overview-grid">
+          <div class="card stat-mini-card">
+            <span class="stat-icon">📊</span>
+            <span class="stat-val" id="stat-total-evac">0</span>
+            <span class="stat-lbl">Evacuaciones totales</span>
+          </div>
+          <div class="card stat-mini-card">
+            <span class="stat-icon">📅</span>
+            <span class="stat-val" id="stat-weekly-avg">0.0</span>
+            <span class="stat-lbl">Promedio semanal</span>
+          </div>
+          <div class="card stat-mini-card">
+            <span class="stat-icon">⌛</span>
+            <span class="stat-val" id="stat-max-gap">0 días</span>
+            <span class="stat-lbl">Mayor brecha sin evacuar</span>
+          </div>
+          <div class="card stat-mini-card">
+            <span class="stat-icon">⚡</span>
+            <span class="stat-val" id="stat-discomfort-days">0</span>
+            <span class="stat-lbl">Días con molestias</span>
+          </div>
+        </div>
+
+        <!-- Gráfico de distribución de consistencia -->
+        <div class="card chart-card">
+          <h3>Consistencia de las heces</h3>
+          <div class="consistency-bars" id="consistency-bars">
+            <!-- Renderizado dinámico de barras -->
+          </div>
+        </div>
+
+        <!-- Evolución reciente -->
+        <div class="card evolution-card">
+          <h3>Evolución de los últimos 30 días</h3>
+          <div class="evolution-chart-container" id="evolution-chart-container">
+            <!-- Renderizado dinámico de gráfica de barras -->
+          </div>
+        </div>
+      </section>
+
+      <!-- PESTAÑA CONSEJOS -->
+      <section id="tab-consejos" class="tab-pane">
+        <div class="card tips-intro-card">
+          <span class="tips-hero-icon">🥑💧🧘‍♀️</span>
+          <h2>Hábitos para un ritmo saludable</h2>
+          <p>Pequeños cambios diarios pueden hacer una gran diferencia en tu digestión y bienestar general.</p>
+        </div>
+
+        <div class="tips-accordion">
+          <!-- Consejo 1 -->
+          <details class="tip-card" open>
+            <summary class="tip-header">
+              <span class="tip-icon">🥗</span>
+              <span class="tip-title">Alimentación rica en fibra</span>
+            </summary>
+            <div class="tip-content">
+              <p>La fibra agrega volumen y suavidad a las heces, facilitando el tránsito intestinal.</p>
+              <ul>
+                <li>Consume frutas frescas con piel (manzanas, peras, ciruelas).</li>
+                <li>Incluye verduras de hoja verde, legumbres (lentejas, garbanzos) y semillas (chía, lino).</li>
+                <li>Prefiere cereales integrales como avena, arroz integral y pan de grano entero.</li>
+                <li>Incrementa la fibra de forma gradual para evitar molestias digestivas.</li>
+              </ul>
+            </div>
+          </details>
+
+          <!-- Consejo 2 -->
+          <details class="tip-card">
+            <summary class="tip-header">
+              <span class="tip-icon">💧</span>
+              <span class="tip-title">Hidratación adecuada</span>
+            </summary>
+            <div class="tip-content">
+              <p>El agua es indispensable para que la fibra cumpla su función y las heces mantengan una consistencia adecuada.</p>
+              <ul>
+                <li>Intenta beber entre 1.5 y 2 litros de agua al día.</li>
+                <li>Comienza la mañana con un vaso de agua a temperatura ambiente.</li>
+                <li>Las infusiones suaves (como manzanilla o menta) también contribuyen a tu hidratación.</li>
+              </ul>
+            </div>
+          </details>
+
+          <!-- Consejo 3 -->
+          <details class="tip-card">
+            <summary class="tip-header">
+              <span class="tip-icon">🚶‍♀️</span>
+              <span class="tip-title">Actividad física regular</span>
+            </summary>
+            <div class="tip-content">
+              <p>El movimiento corporal estimula de forma natural el movimiento peristáltico de los intestinos.</p>
+              <ul>
+                <li>Caminar entre 20 y 30 minutos diarios ayuda a dinamizar tu digestión.</li>
+                <li>Práctica ejercicios suaves como yoga, estiramientos o natación.</li>
+                <li>Evita permanecer sentada/o durante periodos prolongados.</li>
+              </ul>
+            </div>
+          </details>
+
+          <!-- Consejo 4 -->
+          <details class="tip-card">
+            <summary class="tip-header">
+              <span class="tip-icon">⏰</span>
+              <span class="tip-title">Buenos hábitos en el baño</span>
+            </summary>
+            <div class="tip-content">
+              <p>Escuchar las señales de tu cuerpo y adoptar posturas cómodas facilita el proceso.</p>
+              <ul>
+                <li><strong>No pospongas el deseo de ir al baño:</strong> acude cuando sientas la necesidad.</li>
+                <li><strong>Posición ergonómica:</strong> apoya los pies en un taburete bajo para elevar ligeramente las rodillas; esto alinea el recto y reduce el esfuerzo.</li>
+                <li>Dedica un tiempo tranquilo y sin prisas, evitando el uso prolongado del celular en el baño.</li>
+              </ul>
+            </div>
+          </details>
+
+          <!-- Consejo 5 -->
+          <details class="tip-card tip-warning">
+            <summary class="tip-header">
+              <span class="tip-icon">🩺</span>
+              <span class="tip-title">¿Cuándo consultar a un profesional?</span>
+            </summary>
+            <div class="tip-content">
+              <p>Esta aplicación es una guía de bienestar personal y no reemplaza el criterio médico. Te sugerimos consultar con un profesional de la salud si notas:</p>
+              <ul>
+                <li>Presencia de sangre en las deposiciones o sangrado rectal.</li>
+                <li>Dolor abdominal severo o persistente.</li>
+                <li>Cambios repentinos en tu ritmo intestinal que duren más de 2 semanas.</li>
+                <li>Pérdida de peso inexplicable o fiebre acompañada de molestias digestivas.</li>
+                <li>Estreñimiento prolongado que no mejora con cambios en la dieta e hidratación.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <!-- Barra de Navegación Inferior -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-tab="tab-inicio">
+        <span class="nav-icon">🏠</span>
+        <span class="nav-label">Inicio</span>
+      </button>
+      <button class="nav-item" data-tab="tab-calendario">
+        <span class="nav-icon">📅</span>
+        <span class="nav-label">Calendario</span>
+      </button>
+      <button class="nav-item" data-tab="tab-estadisticas">
+        <span class="nav-icon">📈</span>
+        <span class="nav-label">Estadísticas</span>
+      </button>
+      <button class="nav-item" data-tab="tab-consejos">
+        <span class="nav-icon">💡</span>
+        <span class="nav-label">Consejos</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- MODAL DE REGISTRO / EDICIÓN -->
+  <div class="modal-backdrop" id="record-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="modal-title">Registrar Evacuación</h2>
+        <button class="modal-close-btn" id="modal-close-btn">&times;</button>
       </div>
-      <div class="form-group" style="margin:0">
-        <label>Hasta</label>
-        <input type="date" id="rango-hasta">
-      </div>
+      <form id="record-form" class="record-form">
+        <input type="hidden" id="form-record-id" value="">
+
+        <!-- Fecha y Hora -->
+        <div class="form-row">
+          <div class="form-group">
+            <label for="form-date">Fecha</label>
+            <input type="date" id="form-date" required>
+          </div>
+          <div class="form-group">
+            <label for="form-time">Hora</label>
+            <input type="time" id="form-time" required>
+          </div>
+        </div>
+
+        <!-- Dificultad -->
+        <div class="form-group">
+          <label>Dificultad al evacuar</label>
+          <div class="chip-group" id="group-difficulty">
+            <button type="button" class="chip" data-value="fácil">Fácil 🟢</button>
+            <button type="button" class="chip active" data-value="normal">Normal 😊</button>
+            <button type="button" class="chip" data-value="difícil">Difícil 😐</button>
+            <button type="button" class="chip" data-value="muy difícil">Muy difícil 🔴</button>
+          </div>
+          <input type="hidden" id="form-difficulty" value="normal">
+        </div>
+
+        <!-- Dolor -->
+        <div class="form-group">
+          <label>¿Sentiste dolor o molestias?</label>
+          <div class="chip-group" id="group-pain">
+            <button type="button" class="chip active" data-value="no">No 🌿</button>
+            <button type="button" class="chip" data-value="sí">Sí ⚠️</button>
+          </div>
+          <input type="hidden" id="form-pain" value="no">
+        </div>
+
+        <!-- Consistencia -->
+        <div class="form-group">
+          <label>Consistencia de las heces</label>
+          <div class="chip-group" id="group-consistency">
+            <button type="button" class="chip" data-value="muy dura">Muy dura 🪨</button>
+            <button type="button" class="chip" data-value="dura">Dura 🪵</button>
+            <button type="button" class="chip active" data-value="normal">Normal 🍌</button>
+            <button type="button" class="chip" data-value="blanda">Blanda 🍦</button>
+            <button type="button" class="chip" data-value="líquida">Líquida 💧</button>
+          </div>
+          <input type="hidden" id="form-consistency" value="normal">
+        </div>
+
+        <!-- Nota Opcional -->
+        <div class="form-group">
+          <label for="form-notes">Nota opcional</label>
+          <textarea id="form-notes" rows="3" placeholder="Ej: Tomé bastante agua hoy, comí ciruelas, estresada/o..."></textarea>
+        </div>
+
+        <!-- Acciones del Formulario -->
+        <div class="form-actions">
+          <button type="button" class="btn btn-danger btn-delete" id="btn-delete-record" style="display: none;">Eliminar</button>
+          <div class="form-actions-right">
+            <button type="button" class="btn btn-secondary" id="btn-cancel-modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Guardar</button>
+          </div>
+        </div>
+      </form>
     </div>
-    <button class="btn btn-excel btn-sm" onclick="exportarMovimientos()">⬇ Descargar Movimientos.xlsx</button>
   </div>
 
-  <div class="reporte-card">
-    <div class="reporte-header">
-      <div class="reporte-icon">📊</div>
-      <div class="reporte-info">
-        <h3>Reporte Completo</h3>
-        <p>Stock + Movimientos + Sucursales en un solo archivo con 3 hojas</p>
-      </div>
-    </div>
-    <button class="btn btn-blue btn-sm" onclick="exportarCompleto()">⬇ Descargar Reporte Completo.xlsx</button>
-  </div>
-
-  <div class="reporte-card">
-    <div class="reporte-header">
-      <div class="reporte-icon">🏪</div>
-      <div class="reporte-info">
-        <h3>Por Sucursal</h3>
-        <p>Una hoja por sucursal con todo lo que salió hacia cada una</p>
-      </div>
-    </div>
-    <button class="btn btn-excel btn-sm" onclick="exportarSucursales()">⬇ Descargar Por Sucursal.xlsx</button>
-  </div>
-
-  <div class="reporte-card" style="border-color: var(--accent);">
-    <div class="reporte-header">
-      <div class="reporte-icon">💾</div>
-      <div class="reporte-info">
-        <h3>Respaldo de Datos</h3>
-        <p>Exportá todos los datos para respaldo o transferencia entre dispositivos</p>
-      </div>
-    </div>
-    <button class="btn btn-primary btn-sm" onclick="exportarBackup()">💾 Crear Respaldo</button>
-    <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="importarBackup()">📤 Restaurar Respaldo</button>
-  </div>
-</main>
-
-<!-- NUEVO PRODUCTO -->
-<main id="sec-nuevo-producto" class="hidden">
-  <div class="section-title"><div class="dot"></div>Nuevo Producto</div>
-  <div class="card">
-    <div class="form-group">
-      <label>Código</label>
-      <input type="text" id="np-codigo" placeholder="Ej: 22/45" maxlength="20">
-    </div>
-    <div class="form-group">
-      <label>Nombre del producto *</label>
-      <input type="text" id="np-nombre" placeholder="Ej: Sillón 3 cuerpos gris" maxlength="100">
-    </div>
-    <div class="form-group">
-      <label>Categoría</label>
-      <select id="np-cat">
-        <option value="Sillones">🛋️ Sillones</option>
-        <option value="Mesas">🪵 Mesas</option>
-        <option value="Mesas Ratonas">🛋️ Mesas Ratonas</option>
-        <option value="Sillas">🪑 Sillas</option>
-        <option value="Espejos">🪞 Espejos</option>
-        <option value="Cuadros">🖼️ Cuadros</option>
-        <option value="Recibidores">🚪 Recibidores</option>
-        <option value="Muebles Artely">🏢 Muebles Artely</option>
-        <option value="Plantas">🪴 Plantas</option>
-        <option value="Cristalería">🍷 Cristalería</option>
-        <option value="Flores">💐 Flores</option>
-        <option value="Navidad">🎄 Navidad</option>
-        <option value="Pascua">🐰 Pascua</option>
-        <option value="Macetas">🏺 Macetas</option>
-        <option value="Individuales">🍽️ Individuales</option>
-        <option value="Decoración">🏺 Decoración</option>
-        <option value="Otro">📦 Otro</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Stock inicial</label>
-      <input type="number" id="np-qty" placeholder="0" min="0" max="99999" value="0">
-    </div>
-    <div class="form-group">
-      <label>Notas (opcional)</label>
-      <textarea id="np-notas" placeholder="Color, tamaño, código interno..." maxlength="500"></textarea>
-    </div>
-    <button class="btn btn-primary" onclick="agregarProducto()">✓ Guardar Producto</button>
-  </div>
-</main>
-
-<!-- MODAL MOVIMIENTO -->
-<div class="modal-overlay" id="modal-mov" onclick="if(event.target===this) closeModal()">
-  <div class="modal">
-    <div class="modal-title">
-      Registrar Movimiento
-      <button class="close-btn" onclick="closeModal()">✕</button>
-    </div>
-    <div class="move-tabs">
-      <button class="tab-btn active-entrada" id="tab-entrada" onclick="setTipoMov('entrada')">↓ Entrada</button>
-      <button class="tab-btn" id="tab-salida" onclick="setTipoMov('salida')">↑ Salida</button>
-    </div>
-    <div class="form-group">
-      <label>Producto</label>
-      <select id="mov-producto" onchange="updateMovDesc()"></select>
-    </div>
-    <div class="form-group">
-      <label>Descripción</label>
-      <div id="mov-desc" style="font-size: 14px; color: var(--muted); background: var(--card); padding: 10px; border-radius: 8px; border: 1px solid var(--border); min-height: 40px;"></div>
-    </div>
-    <div class="form-group">
-      <label>Cantidad *</label>
-      <input type="number" id="mov-qty" placeholder="1" min="1" max="99999" value="1">
-    </div>
-    <div class="form-group" id="grupo-sucursal" style="display:none">
-      <label>Sucursal destino</label>
-      <select id="mov-sucursal">
-        <option value="Aristóbulo">Aristóbulo</option>
-        <option value="Oberá">Oberá</option>
-        <option value="San Vicente">San Vicente</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Nota (opcional)</label>
-      <input type="text" id="mov-nota" placeholder="Descripción del movimiento" maxlength="200">
-    </div>
-    <button class="btn btn-entrada" id="btn-confirmar-mov" onclick="confirmarMovimiento()">✓ Confirmar Entrada</button>
-  </div>
-</div>
-
-<button class="fab" onclick="openModal()" id="fab-btn">+</button>
-<div class="toast" id="toast"></div>
-
-<script src="script.js" defer></script>
+  <script src="script.js"></script>
 </body>
 </html>
